@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>作業記録 - 勤怠管理システム</title>
+  <?!= include('css'); ?>
+  <style>
+    .work-record-page {
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .work-items-container {
+      margin-top: 2rem;
+    }
+    
+    .work-item {
+      background-color: #f8f9fa;
+      border: 1px solid #eaeaea;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+    
+    .work-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .item-number {
+      font-weight: bold;
+      color: #4b6cb7;
+    }
+    
+    .remove-item {
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .form-column {
+      flex: 1;
+    }
+    
+    .back-link {
+      display: inline-block;
+      margin-bottom: 1rem;
+      color: #4b6cb7;
+      text-decoration: none;
+    }
+    
+    .back-link:hover {
+      text-decoration: underline;
+    }
+    
+    .button-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 2rem;
+    }
+    
+    .add-item-btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 0.7rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .add-item-btn:hover {
+      background-color: #43a047;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-left">
+        <h1>作業記録</h1>
+      </div>
+      <div class="header-right">
+        <div id="current-datetime"></div>
+      </div>
+    </header>
+    
+    <div class="work-record-page">
+      <a href="#" id="back-to-main" class="back-link">← メイン画面に戻る</a>
+      
+      <h2 id="employee-name"></h2>
+      <p>以下に今日の作業内容を記録してください。</p>
+      
+      <div class="work-items-container" id="work-items-container">
+        <!-- 作業項目はJSで動的に生成されます -->
+      </div>
+      
+      <div class="button-row">
+        <button id="add-work-item" class="add-item-btn">
+          <span>+</span> 作業項目を追加
+        </button>
+        <button id="submit-work-record" class="btn primary">登録する</button>
+      </div>
+    </div>
+    
+    <footer>
+      <p>© 2025 勤怠管理システム</p>
+    </footer>
+  </div>
+  
+  <!-- 登録完了モーダル -->
+  <div id="completion-modal" class="modal-container hidden">
+    <div class="modal-content">
+      <div id="modal-header">
+        <h3>登録完了</h3>
+        <span class="close-modal">&times;</span>
+      </div>
+      <div id="modal-body">
+        <p>作業記録が正常に登録されました。</p>
+        <p>お疲れ様でした！</p>
+      </div>
+      <div id="modal-footer">
+        <button id="close-completion" class="btn primary">閉じる</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // グローバル変数
+    let employeeId = null;
+    let employeeName = '';
+    let workItems = [];
+    let workRecords = [];
+    
+    // 初期化処理
+    document.addEventListener('DOMContentLoaded', function() {
+      updateDateTime();
+      setInterval(updateDateTime, 1000); // 1秒ごとに時間を更新
+      
+      // URL パラメータから社員情報を取得
+      // 実際の実装では、ローカルストレージやサーバーサイドのセッションなどを使用する
+      // ここでは簡易的にwindowオブジェクトから取得する例を示す
+      if (window.selectedEmployeeId) {
+        employeeId = window.selectedEmployeeId;
+        employeeName = window.employeeName;
+        workItems = window.workItems || [];
+      } else {
+        // テスト用のダミーデータ
+        employeeId = '1';
+        employeeName = 'テスト社員';
+        workItems = [
+          { id: '1', name: '溶接' },
+          { id: '2', name: '塗装' },
+          { id: '3', name: '組立' },
+          { id: '4', name: '検査' }
+        ];
+      }
+      
+      // 社員名を表示
+      document.getElementById('employee-name').textContent = employeeName + 'さんの作業記録';
+      
+      // 最初の作業項目を追加
+      addWorkItemForm();
+      
+      // イベントリスナーの設定
+      setupEventListeners();
+    });
+    
+    // 日時の更新
+    function updateDateTime() {
+      const now = new Date();
+      const options = { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      };
+      const dateTimeStr = now.toLocaleDateString('ja-JP', options);
+      document.getElementById('current-datetime').textContent = dateTimeStr;
+    }
+    
+    // イベントリスナーの設定
+    function setupEventListeners() {
+      // 作業項目追加ボタン
+      document.getElementById('add-work-item').addEventListener('click', function() {
+        addWorkItemForm();
+      });
+      
+      // 作業記録登録ボタン
+      document.getElementById('submit-work-record').addEventListener('click', function() {
+        submitWorkRecords();
+      });
+      
+      // メイン画面に戻るリンク
+      document.getElementById('back-to-main').addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // 確認ダイアログを表示
+        if (confirm('入力中の内容は保存されません。メイン画面に戻りますか？')) {
+          returnToMainPage();
+        }
+      });
+      
+      // 完了モーダルを閉じるボタン
+      document.getElementById('close-completion').addEventListener('click', function() {
+        closeCompletionModal();
+        returnToMainPage();
+      });
+      
+      document.querySelector('#completion-modal .close-modal').addEventListener('click', function() {
+        closeCompletionModal();
+        returnToMainPage();
+      });
+    }
+    
+    // 作業項目フォームの追加
+    function addWorkItemForm() {
+      const container = document.getElementById('work-items-container');
+      const workItemCount = container.children.length + 1;
+      
+      const workItemElement = document.createElement('div');
+      workItemElement.classList.add('work-item');
+      workItemElement.setAttribute('data-index', workItemCount - 1);
+      
+      workItemElement.innerHTML = `
+        <div class="work-item-header">
+          <div class="item-number">作業項目 #${workItemCount}</div>
+          ${workItemCount > 1 ? '<button class="remove-item">&times;</button>' : ''}
+        </div>
+        
+        <div class="form-group">
+          <label for="work-type-${workItemCount}">作業種類</label>
+          <select id="work-type-${workItemCount}" class="work-type" required>
+            <option value="">選択してください</option>
+            ${workItems.map(item => `<option value="${item.id}">${item.name}</option>`).join('')}
+          </select>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-column">
+            <div class="form-group">
+              <label for="lot-number-${workItemCount}">ロット番号</label>
+              <input type="text" id="lot-number-${workItemCount}" class="lot-number" required placeholder="例: LOT-001">
+            </div>
+          </div>
+          <div class="form-column">
+            <div class="form-group">
+              <label for="quantity-${workItemCount}">数量</label>
+              <input type="number" id="quantity-${workItemCount}" class="quantity" required min="1" placeholder="例: 10">
+            </div>
+          </div>
+        </div>
+      `;
+      
+      container.appendChild(workItemElement);
+      
+      // 削除ボタンのイベントリスナー
+      const removeButton = workItemElement.querySelector('.remove-item');
+      if (removeButton) {
+        removeButton.addEventListener('click', function() {
+          container.removeChild(workItemElement);
+          renumberWorkItems();
+        });
+      }
+    }
+    
+    // 作業項目の番号を振り直す
+    function renumberWorkItems() {
+      const workItems = document.querySelectorAll('.work-item');
+      workItems.forEach((item, index) => {
+        item.setAttribute('data-index', index);
+        item.querySelector('.item-number').textContent = `作業項目 #${index + 1}`;
+      });
+    }
+    
+    // 作業記録の送信
+    function submitWorkRecords() {
+      const workItems = document.querySelectorAll('.work-item');
+      const records = [];
+      let isValid = true;
+      
+      workItems.forEach((item, index) => {
+        const workTypeSelect = item.querySelector('.work-type');
+        const lotNumberInput = item.querySelector('.lot-number');
+        const quantityInput = item.querySelector('.quantity');
+        
+        // 入力検証
+        if (!workTypeSelect.value) {
+          workTypeSelect.classList.add('error');
+          isValid = false;
+        } else {
+          workTypeSelect.classList.remove('error');
+        }
+        
+        if (!lotNumberInput.value) {
+          lotNumberInput.classList.add('error');
+          isValid = false;
+        } else {
+          lotNumberInput.classList.remove('error');
+        }
+        
+        if (!quantityInput.value || isNaN(quantityInput.value) || parseInt(quantityInput.value) < 1) {
+          quantityInput.classList.add('error');
+          isValid = false;
+        } else {
+          quantityInput.classList.remove('error');
+        }
+        
+        // 記録データの作成
+        if (isValid) {
+          const workTypeOption = workTypeSelect.options[workTypeSelect.selectedIndex];
+          records.push({
+            workTypeId: workTypeSelect.value,
+            workTypeName: workTypeOption.text,
+            lotNumber: lotNumberInput.value,
+            quantity: parseInt(quantityInput.value)
+          });
+        }
+      });
+      
+      // 入力エラーがある場合は処理を中断
+      if (!isValid) {
+        alert('入力内容に誤りがあります。すべての項目を正しく入力してください。');
+        return;
+      }
+      
+      // サーバーに送信
+      google.script.run
+        .withSuccessHandler(function(result) {
+          // 登録完了モーダルを表示
+          showCompletionModal();
+        })
+        .withFailureHandler(function(error) {
+          alert('登録に失敗しました: ' + error);
+        })
+        .saveWorkRecords(employeeId, employeeName, records);
+    }
+    
+    // 登録完了モーダルの表示
+    function showCompletionModal() {
+      document.getElementById('completion-modal').classList.remove('hidden');
+    }
+    
+    // 登録完了モーダルを閉じる
+    function closeCompletionModal() {
+      document.getElementById('completion-modal').classList.add('hidden');
+    }
+    
+    // メイン画面に戻る
+    function returnToMainPage() {
+      google.script.run.withSuccessHandler(function(url) {
+        window.location.href = url;
+      }).getMainPageUrl();
+    }
+  </script>
+</body>
+</html>

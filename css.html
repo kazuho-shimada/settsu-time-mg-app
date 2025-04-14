@@ -1,0 +1,503 @@
+<style>
+    /* 全体のスタイル */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+    
+    body {
+      background-color: #f5f7fa;
+      color: #333;
+      line-height: 1.6;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0;
+      background-color: #fff;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* ヘッダースタイル */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+      color: white;
+      position: relative;
+    }
+    
+    .header-left h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+    }
+    
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    
+    #current-datetime {
+      font-size: 1.1rem;
+      font-weight: 500;
+      text-align: right;
+      color: rgba(255, 255, 255, 0.9);
+      min-width: 220px;
+    }
+    
+    .admin-button {
+      padding: 0.5rem 1rem;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: white;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+    }
+    
+    .admin-button:hover {
+      background-color: rgba(255, 255, 255, 0.3);
+    }
+    
+    /* メインコンテンツ */
+    .main-content {
+      display: flex;
+      flex: 1;
+      padding: 0;
+    }
+    
+    /* 社員リスト */
+    .employee-list-container {
+      flex: 0 0 300px;
+      border-right: 1px solid #eaeaea;
+      background-color: #f8f9fa;
+      overflow-y: auto;
+      max-height: calc(100vh - 130px);
+    }
+    
+    .employee-list-container h2 {
+      padding: 1rem;
+      margin: 0;
+      color: #333;
+      font-size: 1.3rem;
+      border-bottom: 1px solid #eaeaea;
+    }
+    
+    .search-box {
+      padding: 1rem;
+      border-bottom: 1px solid #eaeaea;
+    }
+    
+    .search-box input {
+      width: 100%;
+      padding: 0.7rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    
+    .search-box input:focus {
+      border-color: #4b6cb7;
+    }
+    
+    .employee-list {
+      padding: 0.5rem 0;
+    }
+    
+    .employee-item {
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .employee-item:hover {
+      background-color: #f0f4ff;
+    }
+    
+    .employee-item.selected {
+      background-color: #e0eaff;
+      border-left: 4px solid #4b6cb7;
+    }
+    
+    /* 出退勤パネル */
+    .attendance-panel {
+      flex: 1;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #no-selection {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #777;
+      font-size: 1.2rem;
+    }
+    
+    #attendance-actions {
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+    }
+    
+    #attendance-actions h2 {
+      margin-bottom: 2rem;
+      color: #333;
+      font-size: 1.8rem;
+    }
+    
+    .action-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .btn {
+      padding: 1rem 2rem;
+      font-size: 1.2rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 120px;
+    }
+    
+    .check-in {
+      background-color: #4CAF50;
+      color: white;
+    }
+    
+    .check-in:hover {
+      background-color: #43a047;
+    }
+    
+    .check-out {
+      background-color: #FF5722;
+      color: white;
+    }
+    
+    .check-out:hover {
+      background-color: #f4511e;
+    }
+    
+    /* ステータスメッセージ */
+    .status-container {
+      margin-top: 1rem;
+      min-height: 2rem;
+    }
+    
+    #status-message {
+      padding: 0.5rem;
+      border-radius: 4px;
+    }
+    
+    #status-message.success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    #status-message.error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    /* 勤怠状況表示 */
+    .attendance-status {
+      margin: 1rem 0;
+      padding: 0.8rem;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      border-left: 4px solid #4b6cb7;
+    }
+    
+    #today-status {
+      font-size: 1.1rem;
+    }
+    
+    #status-text {
+      font-weight: bold;
+    }
+    
+    /* 勤怠履歴 */
+    .attendance-history {
+      margin-top: 2rem;
+      border-top: 1px solid #eee;
+      padding-top: 1rem;
+    }
+    
+    .attendance-history h3 {
+      font-size: 1.2rem;
+      margin-bottom: 0.8rem;
+      color: #333;
+    }
+    
+    #history-container {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 0.5rem;
+    }
+    
+    .history-item {
+      padding: 0.8rem;
+      margin-bottom: 0.5rem;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      border-left: 3px solid #4b6cb7;
+    }
+    
+    .history-date {
+      font-weight: bold;
+      margin-bottom: 0.3rem;
+    }
+    
+    .history-time {
+      display: flex;
+      justify-content: space-between;
+      color: #555;
+    }
+    
+    .no-history {
+      text-align: center;
+      padding: 1rem;
+      color: #777;
+      border-left: 4px solid #FF5722;
+    }
+    
+    /* モーダルスタイル */
+    .modal-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    
+    .modal-content {
+      background-color: white;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+    
+    #modal-header, #password-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #eaeaea;
+    }
+    
+    #modal-title {
+      margin: 0;
+      font-size: 1.3rem;
+      color: #333;
+    }
+    
+    .close-modal {
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #777;
+    }
+    
+    .close-modal:hover {
+      color: #333;
+    }
+    
+    #modal-body, #password-modal-body {
+      padding: 1.5rem;
+    }
+    
+    #modal-footer, #password-modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #eaeaea;
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+    }
+    
+    .primary {
+      background-color: #4b6cb7;
+      color: white;
+    }
+    
+    .primary:hover {
+      background-color: #3b5998;
+    }
+    
+    .secondary {
+      background-color: #e0e0e0;
+      color: #333;
+    }
+    
+    .secondary:hover {
+      background-color: #d5d5d5;
+    }
+    
+    .time-display {
+      font-size: 2rem;
+      margin: 1rem 0;
+      color: #333;
+      text-align: center;
+    }
+    
+    /* フォーム要素 */
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+    
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 0.8rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      transition: border 0.2s;
+    }
+    
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    input[type="number"]:focus,
+    select:focus {
+      border-color: #4b6cb7;
+      outline: none;
+    }
+    
+    .full-width {
+      width: 100%;
+    }
+    
+    /* 作業記録用スタイル */
+    .work-record-container {
+      width: 100%;
+    }
+    
+    .work-item {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      border: 1px solid #eaeaea;
+      border-radius: 4px;
+      background-color: #fafafa;
+    }
+    
+    .work-controls {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1rem;
+    }
+    
+    .add-work-item {
+      background-color: #4b6cb7;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .add-work-item:hover {
+      background-color: #3b5998;
+    }
+    
+    .remove-work-item {
+      background-color: #f44336;
+      color: white;
+      border: none;
+      padding: 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .remove-work-item:hover {
+      background-color: #d32f2f;
+    }
+    
+    /* ヘルパークラス */
+    .hidden {
+      display: none !important;
+    }
+    
+    /* フッタースタイル */
+    footer {
+      padding: 1rem;
+      text-align: center;
+      background-color: #f8f9fa;
+      border-top: 1px solid #eaeaea;
+      color: #777;
+      font-size: 0.9rem;
+    }
+    
+    /* レスポンシブデザイン */
+    @media (max-width: 768px) {
+      .main-content {
+        flex-direction: column;
+      }
+      
+      .employee-list-container {
+        flex: none;
+        width: 100%;
+        max-height: 300px;
+        border-right: none;
+        border-bottom: 1px solid #eaeaea;
+      }
+      
+      .header-right {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.5rem;
+      }
+      
+      #current-datetime {
+        font-size: 0.9rem;
+        min-width: auto;
+      }
+      
+      .action-buttons {
+        flex-direction: column;
+        gap: 1rem;
+      }
+      
+      .btn {
+        width: 100%;
+      }
+    }
+    </style>
