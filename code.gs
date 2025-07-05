@@ -1,6 +1,6 @@
 // 勤怠管理システム - メインコード
 // スプレッドシートID（実際のIDに変更してください）
-const SPREADSHEET_ID = '1Y2HJPknu0XhGRr2keVGei_b_X1Qn6Mmb3yj6VGBFNfw';
+const SPREADSHEET_ID = '1RYRhIttQfHz3s8NlUBwZYXnNmC5HDvg9cyctU15bpYM';
 
 // シート名定数
 const SHEETS = {
