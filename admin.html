@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>管理画面 - 勤怠管理システム</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f6fa;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: #2c3e50;
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .header h1 {
+      font-size: 1.8rem;
+    }
+    
+    .back-link {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background 0.3s;
+    }
+    
+    .back-link:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .tabs {
+      display: flex;
+      background: white;
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    
+    .tab {
+      flex: 1;
+      padding: 1rem 2rem;
+      background: #ecf0f1;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: all 0.3s;
+      border-right: 1px solid #bdc3c7;
+    }
+    
+    .tab:last-child {
+      border-right: none;
+    }
+    
+    .tab.active {
+      background: white;
+      color: #2c3e50;
+    }
+    
+    .tab:hover:not(.active) {
+      background: #d5dbdb;
+    }
+    
+    .tab-content {
+      background: white;
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      padding: 2rem;
+      min-height: 500px;
+    }
+    
+    .tab-pane {
+      display: none;
+    }
+    
+    .tab-pane.active {
+      display: block;
+    }
+    
+    .section-title {
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      color: #2c3e50;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 0.5rem;
+    }
+    
+    .form-section {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .form-group {
+      flex: 1;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #2c3e50;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 0.8rem;
+      border: 1px solid #bdc3c7;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+    
+    .form-group input:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+    
+    .btn {
+      padding: 0.8rem 1.5rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary {
+      background: #3498db;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #2980b9;
+      transform: translateY(-1px);
+    }
+    
+    .btn-danger {
+      background: #e74c3c;
+      color: white;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.9rem;
+    }
+    
+    .btn-danger:hover {
+      background: #c0392b;
+    }
+    
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .data-table th,
+    .data-table td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid #ecf0f1;
+    }
+    
+    .data-table th {
+      background: #34495e;
+      color: white;
+      font-weight: 600;
+    }
+    
+    .data-table tr:hover {
+      background: #f8f9fa;
+    }
+    
+    .export-section {
+      background: #e8f5e8;
+      border: 1px solid #27ae60;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .export-section h3 {
+      color: #27ae60;
+      margin-bottom: 1rem;
+    }
+    
+    .date-inputs {
+      display: flex;
+      gap: 1rem;
+      align-items: end;
+      margin-bottom: 1rem;
+    }
+    
+    .date-inputs input {
+      padding: 0.8rem;
+      border: 1px solid #27ae60;
+      border-radius: 6px;
+    }
+    
+    .btn-export {
+      background: #27ae60;
+      color: white;
+    }
+    
+    .btn-export:hover {
+      background: #219a52;
+    }
+    
+    .message {
+      padding: 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+      font-weight: 500;
+    }
+    
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #7f8c8d;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #7f8c8d;
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+      
+      .tabs {
+        flex-direction: column;
+      }
+      
+      .form-row {
+        flex-direction: column;
+      }
+      
+      .date-inputs {
+        flex-direction: column;
+      }
+      
+      .data-table {
+        font-size: 0.9rem;
+      }
+      
+      .data-table th,
+      .data-table td {
+        padding: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>管理画面</h1>
+    <a href="?" class="back-link">← メイン画面に戻る</a>
+  </div>
+  
+  <div class="container">
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('employees')">社員管理</button>
+      <button class="tab" onclick="showTab('worktypes')">作業項目管理</button>
+      <button class="tab" onclick="showTab('export')">データ出力</button>
+    </div>
+    
+    <div class="tab-content">
+      <!-- 社員管理タブ -->
+      <div id="employees-tab" class="tab-pane active">
+        <h2 class="section-title">社員管理</h2>
+        
+        <div class="form-section">
+          <h3>新しい社員を追加</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="emp-id">社員ID</label>
+              <input type="text" id="emp-id" placeholder="例: E001">
+            </div>
+            <div class="form-group">
+              <label for="emp-name">社員名</label>
+              <input type="text" id="emp-name" placeholder="例: 山田太郎">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="addEmployee()">追加</button>
+        </div>
+        
+        <h3>社員一覧</h3>
+        <div id="employees-loading" class="loading">読み込み中...</div>
+        <div id="employees-container"></div>
+      </div>
+      
+      <!-- 作業項目管理タブ -->
+      <div id="worktypes-tab" class="tab-pane">
+        <h2 class="section-title">作業項目管理</h2>
+        
+        <div class="form-section">
+          <h3>新しい作業項目を追加</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="work-id">作業ID</label>
+              <input type="text" id="work-id" placeholder="例: W001">
+            </div>
+            <div class="form-group">
+              <label for="work-name">作業名</label>
+              <input type="text" id="work-name" placeholder="例: 溶接">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="addWorkType()">追加</button>
+        </div>
+        
+        <h3>作業項目一覧</h3>
+        <div id="worktypes-loading" class="loading">読み込み中...</div>
+        <div id="worktypes-container"></div>
+      </div>
+      
+      <!-- データ出力タブ -->
+      <div id="export-tab" class="tab-pane">
+        <h2 class="section-title">データ出力</h2>
+        
+        <div class="export-section">
+          <h3>勤怠データ出力</h3>
+          <div class="date-inputs">
+            <div class="form-group">
+              <label>開始日</label>
+              <input type="date" id="attendance-start">
+            </div>
+            <div class="form-group">
+              <label>終了日</label>
+              <input type="date" id="attendance-end">
+            </div>
+            <button class="btn btn-export" onclick="exportAttendance()">勤怠データ出力</button>
+          </div>
+        </div>
+        
+        <div class="export-section">
+          <h3>作業記録出力</h3>
+          <div class="date-inputs">
+            <div class="form-group">
+              <label>開始日</label>
+              <input type="date" id="work-start">
+            </div>
+            <div class="form-group">
+              <label>終了日</label>
+              <input type="date" id="work-end">
+            </div>
+            <button class="btn btn-export" onclick="exportWorkRecords()">作業記録出力</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let employees = [];
+    let workTypes = [];
+    
+    // 初期化
+    document.addEventListener('DOMContentLoaded', function() {
+      loadEmployees();
+      loadWorkTypes();
+      setDefaultDates();
+    });
+    
+    // デフォルト日付設定
+    function setDefaultDates() {
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      
+      const formatDate = date => date.toISOString().split('T')[0];
+      
+      document.getElementById('attendance-start').value = formatDate(firstDay);
+      document.getElementById('attendance-end').value = formatDate(lastDay);
+      document.getElementById('work-start').value = formatDate(firstDay);
+      document.getElementById('work-end').value = formatDate(lastDay);
+    }
+    
+    // タブ切り替え
+    function showTab(tabName) {
+      // タブボタンの状態更新
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      // タブコンテンツの表示切り替え
+      document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+      document.getElementById(tabName + '-tab').classList.add('active');
+    }
+    
+    // 社員データ読み込み
+    function loadEmployees() {
+      document.getElementById('employees-loading').style.display = 'block';
+      
+      google.script.run
+        .withSuccessHandler(function(data) {
+          employees = data || [];
+          renderEmployees();
+          document.getElementById('employees-loading').style.display = 'none';
+        })
+        .withFailureHandler(function(error) {
+          showMessage('社員データの読み込みに失敗しました', 'error');
+          document.getElementById('employees-loading').style.display = 'none';
+        })
+        .getEmployees();
+    }
+    
+    // 作業項目データ読み込み
+    function loadWorkTypes() {
+      document.getElementById('worktypes-loading').style.display = 'block';
+      
+      google.script.run
+        .withSuccessHandler(function(data) {
+          workTypes = data || [];
+          renderWorkTypes();
+          document.getElementById('worktypes-loading').style.display = 'none';
+        })
+        .withFailureHandler(function(error) {
+          showMessage('作業項目データの読み込みに失敗しました', 'error');
+          document.getElementById('worktypes-loading').style.display = 'none';
+        })
+        .getWorkTypes();
+    }
+    
+    // 社員一覧表示
+    function renderEmployees() {
+      const container = document.getElementById('employees-container');
+      
+      if (employees.length === 0) {
+        container.innerHTML = '<div class="empty-state">社員データがありません</div>';
+        return;
+      }
+      
+      const table = `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>社員ID</th>
+              <th>社員名</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${employees.map(emp => `
+              <tr>
+                <td>${emp.id}</td>
+                <td>${emp.name}</td>
+                <td>
+                  <button class="btn btn-danger" onclick="deleteEmployee('${emp.id}')">削除</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      
+      container.innerHTML = table;
+    }
+    
+    // 作業項目一覧表示
+    function renderWorkTypes() {
+      const container = document.getElementById('worktypes-container');
+      
+      if (workTypes.length === 0) {
+        container.innerHTML = '<div class="empty-state">作業項目データがありません</div>';
+        return;
+      }
+      
+      const table = `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>作業ID</th>
+              <th>作業名</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${workTypes.map(wt => `
+              <tr>
+                <td>${wt.id}</td>
+                <td>${wt.name}</td>
+                <td>
+                  <button class="btn btn-danger" onclick="deleteWorkType('${wt.id}')">削除</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      
+      container.innerHTML = table;
+    }
+    
+    // 社員追加
+    function addEmployee() {
+      const id = document.getElementById('emp-id').value.trim();
+      const name = document.getElementById('emp-name').value.trim();
+      
+      if (!id || !name) {
+        showMessage('社員IDと社員名を入力してください', 'error');
+        return;
+      }
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showMessage(result.message, 'success');
+            document.getElementById('emp-id').value = '';
+            document.getElementById('emp-name').value = '';
+            loadEmployees();
+          } else {
+            showMessage(result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showMessage('社員の追加でエラーが発生しました', 'error');
+        })
+        .addEmployee(id, name);
+    }
+    
+    // 社員削除
+    function deleteEmployee(id) {
+      if (!confirm('この社員を削除しますか？')) return;
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showMessage(result.message, 'success');
+            loadEmployees();
+          } else {
+            showMessage(result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showMessage('社員の削除でエラーが発生しました', 'error');
+        })
+        .deleteEmployee(id);
+    }
+    
+    // 作業項目追加
+    function addWorkType() {
+      const id = document.getElementById('work-id').value.trim();
+      const name = document.getElementById('work-name').value.trim();
+      
+      if (!id || !name) {
+        showMessage('作業IDと作業名を入力してください', 'error');
+        return;
+      }
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showMessage(result.message, 'success');
+            document.getElementById('work-id').value = '';
+            document.getElementById('work-name').value = '';
+            loadWorkTypes();
+          } else {
+            showMessage(result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showMessage('作業項目の追加でエラーが発生しました', 'error');
+        })
+        .addWorkType(id, name);
+    }
+    
+    // 作業項目削除
+    function deleteWorkType(id) {
+      if (!confirm('この作業項目を削除しますか？')) return;
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showMessage(result.message, 'success');
+            loadWorkTypes();
+          } else {
+            showMessage(result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showMessage('作業項目の削除でエラーが発生しました', 'error');
+        })
+        .deleteWorkType(id);
+    }
+    
+    // 勤怠データ出力
+    function exportAttendance() {
+      const startDate = document.getElementById('attendance-start').value;
+      const endDate = document.getElementById('attendance-end').value;
+      
+      if (!startDate || !endDate) {
+        showMessage('開始日と終了日を選択してください', 'error');
+        return;
+      }
+      
+      showMessage('勤怠データを出力中...', 'info');
+      
+      google.script.run
+        .withSuccessHandler(function(data) {
+          if (data && data.length > 0) {
+            downloadCSV(data, '勤怠データ_' + startDate + '_' + endDate + '.csv', 
+              ['日付', '社員ID', '社員名', '出勤時間', '退勤時間', '備考']);
+            showMessage('勤怠データを出力しました', 'success');
+          } else {
+            showMessage('該当するデータがありません', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showMessage('勤怠データの出力でエラーが発生しました', 'error');
+        })
+        .getAttendanceData(startDate, endDate);
+    }
+    
+    // 作業記録出力
+    function exportWorkRecords() {
+      const startDate = document.getElementById('work-start').value;
+      const endDate = document.getElementById('work-end').value;
+      
+      if (!startDate || !endDate) {
+        showMessage('開始日と終了日を選択してください', 'error');
+        return;
+      }
+      
+      showMessage('作業記録を出力中...', 'info');
+      
+      google.script.run
+        .withSuccessHandler(function(data) {
+          if (data && data.length > 0) {
+            downloadCSV(data, '作業記録_' + startDate + '_' + endDate + '.csv',
+              ['日付', '社員ID', '社員名', '作業項目', 'ロット番号', '数量']);
+            showMessage('作業記録を出力しました', 'success');
+          } else {
+            showMessage('該当するデータがありません', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showMessage('作業記録の出力でエラーが発生しました', 'error');
+        })
+        .getWorkRecordData(startDate, endDate);
+    }
+    
+    // CSV ダウンロード
+    function downloadCSV(data, filename, headers) {
+      // ヘッダー行を追加
+      const csvData = [headers, ...data];
+      
+      // CSV形式に変換
+      const csvContent = csvData.map(row => 
+        row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')
+      ).join('\n');
+      
+      // BOMを付けてUTF-8で保存（Excelで文字化けしないように）
+      const bom = '\uFEFF';
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+      
+      // ダウンロード実行
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+    
+    // メッセージ表示
+    function showMessage(text, type = 'info') {
+      // 既存のメッセージを削除
+      const existingMessages = document.querySelectorAll('.message');
+      existingMessages.forEach(msg => msg.remove());
+      
+      // 新しいメッセージを作成
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${type}`;
+      messageDiv.textContent = text;
+      
+      // アクティブなタブの先頭に挿入
+      const activeTab = document.querySelector('.tab-pane.active');
+      activeTab.insertBefore(messageDiv, activeTab.firstChild);
+      
+      // 3秒後に削除（エラー以外）
+      if (type !== 'error') {
+        setTimeout(() => {
+          if (messageDiv.parentNode) {
+            messageDiv.remove();
+          }
+        }, 3000);
+      }
+    }
+  </script>
+</body>
+</html>

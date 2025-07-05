@@ -1,577 +1,702 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>勤怠管理システム</title>
-  <script>
-    // グローバル変数
-    let employees = []; // 社員データ
-    let selectedEmployeeId = null; // 選択中の社員ID
-    let attendanceStatusCache = {}; // 社員ごとの勤怠状況キャッシュ
-    let isProcessing = false; // 出勤・退勤処理中かどうか
-    let processingEmployeeId = null; // 処理中の社員ID
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     
-    // ページ読み込み完了時に実行される処理
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('DOMの読み込みが完了しました - index.html');
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 1rem 2rem;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .header h1 {
+      color: #333;
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .datetime {
+      color: #666;
+      font-size: 1.1rem;
+    }
+    
+    .main-container {
+      flex: 1;
+      display: flex;
+      padding: 2rem;
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    
+    .employee-panel {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    }
+    
+    .panel-title {
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+      color: #333;
+      text-align: center;
+    }
+    
+    .employee-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    
+    .employee-card {
+      background: #f8f9fa;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+    
+    .employee-card:hover {
+      background: #e3f2fd;
+      border-color: #2196f3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+    }
+    
+    .employee-card.selected {
+      background: #2196f3;
+      color: white;
+      border-color: #1976d2;
+    }
+    
+    .attendance-panel {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    
+    .welcome-message {
+      color: #666;
+      font-size: 1.2rem;
+      margin-top: 2rem;
+    }
+    
+    .selected-employee {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+      color: #333;
+    }
+    
+    .status-display {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1.5rem 0;
+      font-size: 1.1rem;
+    }
+    
+    .status-checkedin {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status-checkedout {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin: 2rem 0;
+    }
+    
+    .btn {
+      padding: 1rem 2rem;
+      font-size: 1.2rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 140px;
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .btn-checkin {
+      background: #28a745;
+      color: white;
+    }
+    
+    .btn-checkin:hover:not(:disabled) {
+      background: #218838;
+      transform: translateY(-2px);
+    }
+    
+    .btn-checkout {
+      background: #dc3545;
+      color: white;
+    }
+    
+    .btn-checkout:hover:not(:disabled) {
+      background: #c82333;
+      transform: translateY(-2px);
+    }
+    
+    .message {
+      margin: 1rem 0;
+      padding: 1rem;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+    
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .admin-link {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(255, 255, 255, 0.9);
+      color: #666;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+    
+    .admin-link:hover {
+      background: white;
+      color: #333;
+    }
+    
+    /* モーダル */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+    }
+    
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .modal-title {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      color: #333;
+    }
+    
+    .work-form {
+      text-align: left;
+      margin: 1.5rem 0;
+    }
+    
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .form-group select,
+    .form-group input {
+      width: 100%;
+      padding: 0.8rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    
+    .modal-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 1.5rem;
+    }
+    
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+    
+    .btn-primary {
+      background: #007bff;
+      color: white;
+    }
+    
+    /* レスポンシブ */
+    @media (max-width: 768px) {
+      .main-container {
+        flex-direction: column;
+        padding: 1rem;
+      }
       
-      // 日時の更新
+      .employee-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        max-height: 40vh;
+      }
+      
+      .action-buttons {
+        flex-direction: column;
+      }
+      
+      .btn {
+        width: 100%;
+      }
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>勤怠管理システム</h1>
+    <div class="datetime" id="datetime"></div>
+  </div>
+  
+  <a href="?page=admin" class="admin-link">管理画面</a>
+  
+  <div class="main-container">
+    <!-- 社員選択パネル -->
+    <div class="employee-panel">
+      <h2 class="panel-title">社員を選択してください</h2>
+      <div class="employee-grid" id="employee-grid">
+        <!-- 社員カードがJavaScriptで生成されます -->
+      </div>
+    </div>
+    
+    <!-- 勤怠操作パネル -->
+    <div class="attendance-panel">
+      <div id="welcome-state">
+        <div class="welcome-message">
+          ← 左の一覧から社員を選択してください
+        </div>
+      </div>
+      
+      <div id="attendance-state" class="hidden">
+        <h2 class="selected-employee" id="selected-name"></h2>
+        <div class="status-display" id="status-display">
+          読み込み中...
+        </div>
+        
+        <div class="action-buttons">
+          <button class="btn btn-checkin" id="checkin-btn" onclick="handleCheckIn()">
+            出勤
+          </button>
+          <button class="btn btn-checkout" id="checkout-btn" onclick="handleCheckOut()">
+            退勤
+          </button>
+        </div>
+        
+        <div id="message-area"></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 作業記録確認モーダル -->
+  <div class="modal" id="work-confirm-modal">
+    <div class="modal-content">
+      <h3 class="modal-title">作業記録の確認</h3>
+      <p>本日の作業記録はありますか？</p>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeWorkModal()">いいえ</button>
+        <button class="btn btn-primary" onclick="showWorkForm()">はい</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 作業記録入力モーダル -->
+  <div class="modal" id="work-input-modal">
+    <div class="modal-content">
+      <h3 class="modal-title">作業記録入力</h3>
+      <form class="work-form" id="work-form">
+        <div class="form-group">
+          <label for="work-type">作業項目</label>
+          <select id="work-type" required>
+            <option value="">選択してください</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="lot-number">ロット番号</label>
+          <input type="text" id="lot-number" required placeholder="例: LOT-001">
+        </div>
+        <div class="form-group">
+          <label for="quantity">数量</label>
+          <input type="number" id="quantity" required min="1" placeholder="例: 10">
+        </div>
+      </form>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeWorkModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="saveWorkRecord()">保存</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let employees = [];
+    let workTypes = [];
+    let selectedEmployeeId = null;
+    let currentAttendance = null;
+    
+    // 初期化
+    document.addEventListener('DOMContentLoaded', function() {
       updateDateTime();
       setInterval(updateDateTime, 1000);
-      
-      // 社員データを取得
-      fetchEmployees();
+      loadEmployees();
+      loadWorkTypes();
     });
     
-    // 日時の更新
+    // 日時更新
     function updateDateTime() {
       const now = new Date();
-      const options = { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
+      const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit'
       };
-      const dateTimeStr = now.toLocaleDateString('ja-JP', options);
-      const dateTimeElement = document.getElementById('current-datetime');
-      if (dateTimeElement) {
-        dateTimeElement.textContent = dateTimeStr;
-      }
+      document.getElementById('datetime').textContent = 
+        now.toLocaleDateString('ja-JP', options);
     }
     
-    // 社員データの取得
-    function fetchEmployees() {
-      console.log('社員データを取得中...');
-      
-      // デバッグ用のデータ
-      const sampleData = [
-        { id: '1', name: '山田太郎' },
-        { id: '2', name: '鈴木花子' },
-        { id: '3', name: '田中三郎' }
-      ];
-      
-      // サーバーからデータを取得
+    // 社員データ読み込み
+    function loadEmployees() {
       google.script.run
         .withSuccessHandler(function(data) {
-          console.log('社員データを取得しました:', data);
-          
-          // データが空の場合はサンプルデータを使用
-          if (!data || data.length === 0) {
-            console.log('データが空のためサンプルデータを使用します');
-            employees = sampleData;
-          } else {
-            employees = data;
-          }
-          
-          // 社員一覧を表示
-          renderEmployeeList();
+          employees = data || [];
+          renderEmployees();
         })
         .withFailureHandler(function(error) {
-          console.error('社員データの取得に失敗しました:', error);
-          
-          // エラー時はサンプルデータを使用
-          employees = sampleData;
-          renderEmployeeList();
+          showMessage('社員データの読み込みに失敗しました', 'error');
+          console.error('社員データ読み込みエラー:', error);
         })
         .getEmployees();
     }
     
-    // 社員一覧の表示
-    function renderEmployeeList() {
-      console.log('社員一覧を表示します。社員数:', employees.length);
-      
-      // 社員リスト要素を取得
-      const employeeListElement = document.getElementById('employee-list');
-      if (!employeeListElement) {
-        console.error('employee-list要素が見つかりません');
-        return;
-      }
-      
-      // リストをクリア
-      employeeListElement.innerHTML = '';
-      
-      // 社員データが空の場合
-      if (!employees || employees.length === 0) {
-        employeeListElement.innerHTML = '<div class="empty-message">社員データがありません</div>';
-        return;
-      }
-      
-      // 各社員の要素を作成
-      let html = '';
-      for (let i = 0; i < employees.length; i++) {
-        const employee = employees[i];
-        if (!employee || !employee.id || !employee.name) continue;
-        
-        const selectedClass = (employee.id === selectedEmployeeId) ? ' selected' : '';
-        html += `<div class="employee-item${selectedClass}" data-id="${employee.id}" onclick="selectEmployee('${employee.id}')">${employee.name}</div>`;
-      }
-      
-      // HTMLを設定
-      employeeListElement.innerHTML = html;
-    }
-    
-    // 社員の選択
-    function selectEmployee(employeeId) {
-      console.log('社員を選択します:', employeeId);
-      
-      // 出勤・退勤処理中は社員切り替えを無効化
-      if (isProcessing) {
-        showStatusMessage('出勤・退勤処理中は社員を切り替えられません', true);
-        console.log('処理中のため社員切り替えをキャンセルしました');
-        return;
-      }
-      
-      // 選択した社員IDを保存
-      selectedEmployeeId = employeeId;
-      
-      // 全ての社員要素からselectedクラスを削除
-      const items = document.querySelectorAll('.employee-item');
-      for (let i = 0; i < items.length; i++) {
-        items[i].classList.remove('selected');
-      }
-      
-      // 選択された社員にクラスを追加
-      const selectedItem = document.querySelector(`.employee-item[data-id="${employeeId}"]`);
-      if (selectedItem) {
-        selectedItem.classList.add('selected');
-      }
-      
-      // 選択した社員の情報を表示
-      const employee = employees.find(emp => emp.id === employeeId);
-      if (employee) {
-        // 社員名を表示
-        document.getElementById('selected-employee-name').textContent = employee.name;
-        
-        // パネルの表示切替
-        document.getElementById('no-selection').classList.add('hidden');
-        document.getElementById('attendance-actions').classList.remove('hidden');
-        
-        // 勤怠状況を表示
-        // キャッシュがあればそれを使用、なければ新規取得
-        if (attendanceStatusCache[employeeId]) {
-          console.log('キャッシュから勤怠状況を表示:', employeeId);
-          updateAttendanceUI(attendanceStatusCache[employeeId]);
-        } else {
-          console.log('新規に勤怠状況を取得:', employeeId);
-          fetchAttendanceStatus(employeeId);
-        }
-      }
-    }
-    
-    // 勤怠状況を取得して表示
-    function fetchAttendanceStatus(employeeId) {
-      // 読み込み中の表示
-      document.getElementById('status-text').textContent = '読み込み中...';
-      document.getElementById('history-container').innerHTML = '<div class="loading-message">記録を読み込み中...</div>';
-      
-      // ボタンを無効化
-      document.getElementById('check-in-btn').disabled = true;
-      document.getElementById('check-out-btn').disabled = true;
-      
-      // サーバーから勤怠状況を取得
+    // 作業項目データ読み込み
+    function loadWorkTypes() {
       google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            // キャッシュに保存
-            attendanceStatusCache[employeeId] = result.data;
-            console.log('勤怠状況をキャッシュに保存:', employeeId);
-            
-            // UIを更新
-            updateAttendanceUI(result.data);
-          } else {
-            showStatusMessage(result.message, true);
-            document.getElementById('status-text').textContent = '取得失敗';
-            document.getElementById('history-container').innerHTML = '<div class="no-history">勤怠記録を取得できませんでした</div>';
-          }
+        .withSuccessHandler(function(data) {
+          workTypes = data || [];
+          renderWorkTypeOptions();
         })
         .withFailureHandler(function(error) {
-          showStatusMessage('勤怠状況の取得に失敗しました: ' + error, true);
-          document.getElementById('status-text').textContent = 'エラー';
-          document.getElementById('history-container').innerHTML = '<div class="no-history">エラーが発生しました</div>';
+          console.error('作業項目読み込みエラー:', error);
         })
-        .getAttendanceStatus(employeeId);
+        .getWorkTypes();
     }
     
-    // 勤怠状況のUIを更新
-    function updateAttendanceUI(data) {
-      console.log('勤怠状況を更新します:', data);
+    // 社員カード表示
+    function renderEmployees() {
+      const grid = document.getElementById('employee-grid');
       
-      if (!data) {
-        console.error('勤怠状況データが空です');
+      if (employees.length === 0) {
+        grid.innerHTML = '<div style="text-align: center; color: #666; grid-column: 1/-1;">社員データがありません</div>';
         return;
       }
       
-      // デバッグ用に勤怠状況を詳細表示
-      console.log('出勤可能状態:', data.canCheckIn);
-      console.log('退勤可能状態:', data.canCheckOut);
+      grid.innerHTML = employees.map(emp => `
+        <div class="employee-card" onclick="selectEmployee('${emp.id}')">
+          ${emp.name}
+        </div>
+      `).join('');
+    }
+    
+    // 作業項目選択肢表示
+    function renderWorkTypeOptions() {
+      const select = document.getElementById('work-type');
+      select.innerHTML = '<option value="">選択してください</option>' +
+        workTypes.map(wt => `<option value="${wt.id}">${wt.name}</option>`).join('');
+    }
+    
+    // 社員選択
+    function selectEmployee(employeeId) {
+      selectedEmployeeId = employeeId;
       
-      // 本日の状況を表示
-      const statusText = document.getElementById('status-text');
-      if (!statusText) {
-        console.error('status-text要素が見つかりません');
-        return;
-      }
+      // 選択状態の更新
+      document.querySelectorAll('.employee-card').forEach(card => {
+        card.classList.remove('selected');
+      });
+      event.target.classList.add('selected');
       
-      if (data.canCheckIn) {
-        statusText.textContent = '未出勤';
-        statusText.style.color = '#dc3545';
-      } else if (data.canCheckOut) {
-        statusText.textContent = '出勤中';
-        statusText.style.color = '#28a745';
+      // パネル切り替え
+      document.getElementById('welcome-state').classList.add('hidden');
+      document.getElementById('attendance-state').classList.remove('hidden');
+      
+      // 社員名表示
+      const employee = employees.find(emp => emp.id === employeeId);
+      document.getElementById('selected-name').textContent = employee.name + 'さん';
+      
+      // 勤怠状況取得
+      loadAttendanceStatus();
+    }
+    
+    // 勤怠状況読み込み
+    function loadAttendanceStatus() {
+      document.getElementById('status-display').textContent = '読み込み中...';
+      document.getElementById('checkin-btn').disabled = true;
+      document.getElementById('checkout-btn').disabled = true;
+      
+      google.script.run
+        .withSuccessHandler(function(attendance) {
+          currentAttendance = attendance;
+          updateAttendanceDisplay();
+        })
+        .withFailureHandler(function(error) {
+          showMessage('勤怠状況の取得に失敗しました', 'error');
+          console.error('勤怠状況取得エラー:', error);
+        })
+        .getTodayAttendance(selectedEmployeeId);
+    }
+    
+    // 勤怠状況表示更新
+    function updateAttendanceDisplay() {
+      const statusDiv = document.getElementById('status-display');
+      const checkinBtn = document.getElementById('checkin-btn');
+      const checkoutBtn = document.getElementById('checkout-btn');
+      
+      if (!currentAttendance.hasCheckedIn) {
+        statusDiv.textContent = '未出勤';
+        statusDiv.className = 'status-display';
+        checkinBtn.disabled = false;
+        checkoutBtn.disabled = true;
+      } else if (!currentAttendance.hasCheckedOut) {
+        statusDiv.textContent = `出勤中（${currentAttendance.checkInTime}から）`;
+        statusDiv.className = 'status-display status-checkedin';
+        checkinBtn.disabled = true;
+        checkoutBtn.disabled = false;
       } else {
-        statusText.textContent = '退勤済み';
-        statusText.style.color = '#6c757d';
-      }
-      
-      // ボタンの有効/無効を設定
-      const checkInBtn = document.getElementById('check-in-btn');
-      const checkOutBtn = document.getElementById('check-out-btn');
-      
-      // デバッグ用にボタンの状態を表示
-      console.log('出勤ボタン状態:', checkInBtn ? checkInBtn.disabled : '存在しません');
-      console.log('退勤ボタン状態:', checkOutBtn ? checkOutBtn.disabled : '存在しません');
-      
-      // デバッグ中は退勤ボタンを強制的に有効化
-      if (checkInBtn) checkInBtn.disabled = !data.canCheckIn;
-      if (checkOutBtn) {
-        console.log('退勤ボタンを有効化します');
-        checkOutBtn.disabled = false; // 強制的に有効化
-      }
-      
-      // 勤怠履歴を表示
-      renderAttendanceHistory(data.history);
-    }
-    
-    // 勤怠履歴を表示
-    function renderAttendanceHistory(history) {
-      const historyContainer = document.getElementById('history-container');
-      
-      if (!history || history.length === 0) {
-        historyContainer.innerHTML = '<div class="no-history">直近の勤怠記録がありません</div>';
-        return;
-      }
-      
-      let html = '';
-      for (let i = 0; i < history.length; i++) {
-        const record = history[i];
-        
-        // 無効な記録はスキップ
-        if (!record || !record.date) {
-          continue;
-        }
-        
-        html += `
-          <div class="history-item">
-            <div class="history-date">${record.date}</div>
-            <div class="history-time">
-              <div>出勤: ${record.checkInTime || '記録なし'}</div>
-              <div>退勤: ${record.checkOutTime || '記録なし'}</div>
-            </div>
-          </div>
-        `;
-      }
-      
-      historyContainer.innerHTML = html;
-    }
-    
-    // ステータスメッセージを表示
-    function showStatusMessage(message, isError = false) {
-      const statusElement = document.getElementById('status-message');
-      if (statusElement) {
-        statusElement.textContent = message;
-        statusElement.className = isError ? 'error' : 'success';
-        
-        // 3秒後にメッセージを消す
-        setTimeout(function() {
-          statusElement.textContent = '';
-          statusElement.className = '';
-        }, 3000);
+        statusDiv.textContent = `退勤済み（${currentAttendance.checkInTime} - ${currentAttendance.checkOutTime}）`;
+        statusDiv.className = 'status-display status-checkedout';
+        checkinBtn.disabled = true;
+        checkoutBtn.disabled = true;
       }
     }
     
     // 出勤処理
     function handleCheckIn() {
-      if (!selectedEmployeeId) {
-        showStatusMessage('社員が選択されていません', true);
-        return;
-      }
+      if (!selectedEmployeeId) return;
       
-      // 処理中フラグを設定
-      isProcessing = true;
-      processingEmployeeId = selectedEmployeeId;
-      console.log('出勤処理開始 - 処理中社員ID:', processingEmployeeId);
+      document.getElementById('checkin-btn').disabled = true;
+      showMessage('出勤処理中...', 'info');
       
-      // ボタンを無効化
-      const checkInBtn = document.getElementById('check-in-btn');
-      const checkOutBtn = document.getElementById('check-out-btn');
-      if (checkInBtn) checkInBtn.disabled = true;
-      if (checkOutBtn) checkOutBtn.disabled = true;
-      
-      showStatusMessage('出勤処理中...');
-      
-      // サーバーに出勤処理をリクエスト
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            showStatusMessage(result.message);
-            console.log('出勤処理成功:', result);
-            
-            // 勤怠状況を更新
-            if (result.data && result.data.status) {
-              // 保存しておいた処理中社員IDを使用してキャッシュを更新
-              attendanceStatusCache[processingEmployeeId] = result.data.status;
-              console.log('出勤処理後にキャッシュを更新:', processingEmployeeId);
-              
-              // 現在表示中の社員が処理した社員と同じ場合のみ表示を更新
-              if (selectedEmployeeId === processingEmployeeId) {
-                updateAttendanceUI(result.data.status);
-              } else {
-                console.log('処理中に社員が切り替わったため、UI更新をスキップしました');
-              }
-            } else {
-              // 状況が返ってこない場合は再取得
-              if (selectedEmployeeId === processingEmployeeId) {
-                fetchAttendanceStatus(selectedEmployeeId);
-              }
-            }
-            
-            // 処理中フラグをリセット
-            isProcessing = false;
-            console.log('出勤処理完了 - 処理中フラグをリセット');
+            showMessage(result.message, 'success');
+            loadAttendanceStatus(); // 状況再読み込み
           } else {
-            showStatusMessage(result.message, true);
-            console.error('出勤処理失敗:', result);
-            
-            // ボタンを再有効化
-            if (checkInBtn) checkInBtn.disabled = false;
-            if (checkOutBtn) checkOutBtn.disabled = false;
-            
-            // 処理中フラグをリセット
-            isProcessing = false;
-            console.log('出勤処理失敗 - 処理中フラグをリセット');
+            showMessage(result.message, 'error');
+            document.getElementById('checkin-btn').disabled = false;
           }
         })
         .withFailureHandler(function(error) {
-          showStatusMessage('エラーが発生しました: ' + error, true);
+          showMessage('出勤処理でエラーが発生しました', 'error');
+          document.getElementById('checkin-btn').disabled = false;
           console.error('出勤処理エラー:', error);
-          
-          // ボタンを再有効化
-          if (checkInBtn) checkInBtn.disabled = false;
-          if (checkOutBtn) checkOutBtn.disabled = false;
-          
-          // 処理中フラグをリセット
-          isProcessing = false;
-          console.log('出勤処理エラー - 処理中フラグをリセット');
         })
-        .checkIn(selectedEmployeeId);
+        .recordCheckIn(selectedEmployeeId);
     }
     
     // 退勤処理
     function handleCheckOut() {
-      console.log('退勤処理関数が呼び出されました');
-      if (!selectedEmployeeId) {
-        showStatusMessage('社員が選択されていません', true);
-        return;
-      }
+      if (!selectedEmployeeId) return;
       
-      // ボタンを無効化
-      const checkInBtn = document.getElementById('check-in-btn');
-      const checkOutBtn = document.getElementById('check-out-btn');
-      if (checkInBtn) checkInBtn.disabled = true;
-      if (checkOutBtn) checkOutBtn.disabled = true;
+      document.getElementById('checkout-btn').disabled = true;
+      showMessage('退勤処理中...', 'info');
       
-      showStatusMessage('退勤処理中...');
-      
-      // サーバーに退勤処理をリクエスト
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            showStatusMessage(result.message);
-            console.log('退勤処理成功:', result);
-            
-            // 勤怠状況を更新
-            console.log('退勤処理結果:', result);
-            
-            // 勤怠状況を強制的に再取得して表示する
-            console.log('退勤処理後に勤怠状況を再取得します');
-            
-            // ボタンを再有効化
-            if (checkInBtn) checkInBtn.disabled = false;
-            if (checkOutBtn) checkOutBtn.disabled = false;
-            
-            // キャッシュをクリアして強制的に再取得
-            delete attendanceStatusCache[selectedEmployeeId];
-            
-            // 少し遅延させて勤怠状況を再取得
-            setTimeout(function() {
-              console.log('遅延後に勤怠状況を再取得します');
-              fetchAttendanceStatus(selectedEmployeeId);
-            }, 1000); // 遅延を少し長くしてみる
+            showMessage(result.message, 'success');
+            loadAttendanceStatus(); // 状況再読み込み
+            // 作業記録確認モーダル表示
+            setTimeout(() => {
+              document.getElementById('work-confirm-modal').classList.add('show');
+            }, 1500);
           } else {
-            showStatusMessage(result.message, true);
-            console.error('退勤処理失敗:', result);
-            
-            // ボタンを再有効化
-            if (checkInBtn) checkInBtn.disabled = false;
-            if (checkOutBtn) checkOutBtn.disabled = false;
+            showMessage(result.message, 'error');
+            document.getElementById('checkout-btn').disabled = false;
           }
         })
         .withFailureHandler(function(error) {
-          showStatusMessage('エラーが発生しました: ' + error, true);
+          showMessage('退勤処理でエラーが発生しました', 'error');
+          document.getElementById('checkout-btn').disabled = false;
           console.error('退勤処理エラー:', error);
-          
-          // ボタンを再有効化
-          if (checkInBtn) checkInBtn.disabled = false;
-          if (checkOutBtn) checkOutBtn.disabled = false;
         })
-        .checkOut(selectedEmployeeId);
+        .recordCheckOut(selectedEmployeeId);
     }
-    // テスト用の退勤処理関数
-    function testCheckOut() {
-      console.log('テスト退勤処理が呼び出されました');
+    
+    // 作業記録フォーム表示
+    function showWorkForm() {
+      document.getElementById('work-confirm-modal').classList.remove('show');
+      document.getElementById('work-input-modal').classList.add('show');
       
-      if (!selectedEmployeeId) {
-        alert('社員が選択されていません');
+      // フォームリセット
+      document.getElementById('work-form').reset();
+    }
+    
+    // 作業記録保存
+    function saveWorkRecord() {
+      const workType = document.getElementById('work-type').value;
+      const lotNumber = document.getElementById('lot-number').value;
+      const quantity = document.getElementById('quantity').value;
+      
+      if (!workType || !lotNumber || !quantity) {
+        showMessage('すべての項目を入力してください', 'error');
         return;
       }
       
-      // 選択中の社員IDを表示
-      alert('退勤処理を開始します\n社員ID: ' + selectedEmployeeId);
+      if (quantity <= 0) {
+        showMessage('数量は1以上で入力してください', 'error');
+        return;
+      }
       
-      // ボタンを無効化
-      document.getElementById('check-in-btn').disabled = true;
-      document.getElementById('check-out-btn').disabled = true;
-      
-      // ステータスメッセージを表示
-      showStatusMessage('退勤処理中...');
-      
-      // サーバーに直接退勤処理をリクエスト
       google.script.run
         .withSuccessHandler(function(result) {
-          // 結果をアラートで表示
-          alert('退勤処理結果:\n' + JSON.stringify(result));
-          
-          // ボタンを再有効化
-          document.getElementById('check-in-btn').disabled = false;
-          document.getElementById('check-out-btn').disabled = false;
-          
-          // 成功時は勤怠状況を再取得
-          if (result && result.success) {
-            showStatusMessage('退勤処理が完了しました');
-            fetchAttendanceStatus(selectedEmployeeId);
+          if (result.success) {
+            showMessage(result.message, 'success');
+            closeWorkModal();
+            showThankYouMessage();
           } else {
-            showStatusMessage(result && result.message ? result.message : '退勤処理に失敗しました', true);
+            showMessage(result.message, 'error');
           }
         })
         .withFailureHandler(function(error) {
-          // エラーをアラートで表示
-          alert('退勤処理エラー:\n' + error);
-          
-          // ボタンを再有効化
-          document.getElementById('check-in-btn').disabled = false;
-          document.getElementById('check-out-btn').disabled = false;
-          
-          // エラーメッセージを表示
-          showStatusMessage('退勤処理中にエラーが発生しました: ' + error, true);
+          showMessage('作業記録の保存でエラーが発生しました', 'error');
+          console.error('作業記録保存エラー:', error);
         })
-        .checkOut(selectedEmployeeId);
+        .saveWorkRecord(selectedEmployeeId, workType, lotNumber, parseInt(quantity));
     }
-  </script>
-  <?!= include('css'); ?>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <div class="header-left">
-        <h1>勤怠管理システム</h1>
-      </div>
-      <div class="header-right">
-        <div id="current-datetime"></div>
-        <a href="<?= ScriptApp.getService().getUrl() ?>?page=admin" target="_top" id="admin-link" class="admin-button">管理画面</a>
-      </div>
-    </header>
     
-    <div class="main-content">
-      <div class="employee-list-container">
-        <h2>社員一覧</h2>
-        <div class="employee-list" id="employee-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 8px;">
-          <!-- 社員一覧がJSで動的に生成されます -->
-          <div class="loading-message">データ読み込み中...</div>
-        </div>
-      </div>
+    // 作業記録モーダルを閉じる
+    function closeWorkModal() {
+      document.getElementById('work-confirm-modal').classList.remove('show');
+      document.getElementById('work-input-modal').classList.remove('show');
+      showThankYouMessage();
+    }
+    
+    // お疲れ様メッセージ表示
+    function showThankYouMessage() {
+      const employee = employees.find(emp => emp.id === selectedEmployeeId);
+      if (employee) {
+        showMessage(`${employee.name}さん、お疲れ様でした！`, 'success');
+      }
       
-      <div class="attendance-panel">
-        <div id="no-selection">
-          <p>左の一覧から社員を選択してください</p>
-        </div>
-        
-        <div id="attendance-actions" class="hidden">
-          <h2 id="selected-employee-name"></h2>
-          
-          <!-- 勤怠状況表示エリア -->
-          <div class="attendance-status" style="display: none;">
-            <div id="today-status"><span id="status-text">未出勤</span></div>
-          </div>
-          
-          <div class="action-buttons">
-            <button id="check-in-btn" class="btn check-in" onclick="handleCheckIn()">出勤</button>
-            <button id="check-out-btn" class="btn check-out" onclick="handleCheckOut()">退勤</button>
-          </div>
-          
-          <div class="status-container">
-            <div id="status-message"></div>
-          </div>
-          
-          <!-- 勤怠履歴表示エリア -->
-          <div class="attendance-history">
-            <h3>直近の勤怠記録</h3>
-            <div id="history-container">
-              <div class="loading-message">記録を読み込み中...</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      // 3秒後に選択をリセット
+      setTimeout(() => {
+        resetSelection();
+      }, 3000);
+    }
     
-    <footer>
-      <p>© 2025 勤怠管理システム</p>
-    </footer>
-  </div>
-  
-  <!-- モーダルダイアログ用のコンテナ -->
-  <div id="modal-container" class="modal-container hidden">
-    <div class="modal-content">
-      <div id="modal-header">
-        <h3 id="modal-title"></h3>
-        <span class="close-modal">&times;</span>
-      </div>
-      <div id="modal-body"></div>
-      <div id="modal-footer"></div>
-    </div>
-  </div>
-  
-  <!-- パスワード入力モーダル -->
-  <div id="password-modal" class="modal-container hidden">
-    <div class="modal-content">
-      <div id="password-modal-header">
-        <h3>管理者認証</h3>
-        <span class="close-modal" id="close-password">&times;</span>
-      </div>
-      <div id="password-modal-body">
-        <p>管理画面にアクセスするためのパスワードを入力してください：</p>
-        <input type="password" id="admin-password" class="full-width">
-        <div id="password-error" class="error-message hidden"></div>
-      </div>
-      <div id="password-modal-footer">
-        <button id="cancel-password" class="btn secondary">キャンセル</button>
-        <button id="submit-password" class="btn primary">確認</button>
-      </div>
-    </div>
-  </div>
+    // 選択リセット
+    function resetSelection() {
+      selectedEmployeeId = null;
+      currentAttendance = null;
+      
+      // UI リセット
+      document.querySelectorAll('.employee-card').forEach(card => {
+        card.classList.remove('selected');
+      });
+      
+      document.getElementById('welcome-state').classList.remove('hidden');
+      document.getElementById('attendance-state').classList.add('hidden');
+      document.getElementById('message-area').innerHTML = '';
+    }
+    
+    // メッセージ表示
+    function showMessage(text, type = 'info') {
+      const messageArea = document.getElementById('message-area');
+      const messageClass = type === 'error' ? 'message error' : 
+                          type === 'success' ? 'message success' : 'message';
+      
+      messageArea.innerHTML = `<div class="${messageClass}">${text}</div>`;
+      
+      // 3秒後に消去（エラー以外）
+      if (type !== 'error') {
+        setTimeout(() => {
+          messageArea.innerHTML = '';
+        }, 3000);
+      }
+    }
+    
+    // モーダル外クリックで閉じる
+    document.addEventListener('click', function(e) {
+      if (e.target.classList.contains('modal')) {
+        closeWorkModal();
+      }
+    });
+  </script>
 </body>
 </html>
