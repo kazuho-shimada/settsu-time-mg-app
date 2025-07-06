@@ -32,16 +32,18 @@
     }
     
     .back-link {
+      border: none;
       background: rgba(255,255,255,0.2);
       color: white;
       padding: 0.5rem 1rem;
       border-radius: 6px;
-      text-decoration: none;
+      font-size: 1rem;
+      cursor: pointer;
       transition: background 0.3s;
     }
     
     .back-link:hover {
-      background: rgba(255,255,255,0.3) !important;
+      background: rgba(255,255,255,0.3);
     }
     
     .container {
@@ -712,8 +714,13 @@
     
     // メイン画面への遷移
     function navigateToMain() {
-      const url = google.script.url.replace(/\?.*$/, '');
-      window.top.location.href = url;
+      const scriptUrl = '<?= scriptUrl ?>';
+      
+      console.log('現在のURL:', window.location.href);
+      console.log('メイン画面URL:', scriptUrl);
+      
+      // 遷移実行
+      window.location.href = scriptUrl;
     }
     
     // メッセージ表示

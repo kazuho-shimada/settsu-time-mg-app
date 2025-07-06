@@ -85,18 +85,21 @@ function doGet(e) {
   initialize();
   
   const params = e.parameter || {};
+  const scriptUrl = ScriptApp.getService().getUrl();
   
   // 管理画面
   if (params.page === 'admin') {
-    return HtmlService.createTemplateFromFile('admin')
-      .evaluate()
+    const template = HtmlService.createTemplateFromFile('admin');
+    template.scriptUrl = scriptUrl;
+    return template.evaluate()
       .setTitle('管理画面')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
   
   // メイン画面
-  return HtmlService.createTemplateFromFile('index')
-    .evaluate()
+  const template = HtmlService.createTemplateFromFile('index');
+  template.scriptUrl = scriptUrl;
+  return template.evaluate()
     .setTitle('勤怠管理システム')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
