@@ -493,18 +493,22 @@ function getAttendanceData(startDate, endDate) {
   try {
     initialize();
     const sheet = spreadsheet.getSheetByName(SHEETS.ATTENDANCE);
-    const data = sheet.getDataRange().getValues();
+    // ヘッダーを除いたデータを取得
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
     
     const filteredData = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // 日付のタイムゾーンを考慮して比較
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T23:59:59');
     
-    for (let i = 1; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       const dateStr = data[i][0];
-      if (dateStr) {
-        const date = new Date(dateStr);
-        if (date >= start && date <= end) {
-          filteredData.push(data[i]);
+      if (dateStr && typeof dateStr.getMonth === 'function') { // Dateオブジェクトかチェック
+        if (dateStr >= start && dateStr <= end) {
+          // 日付を yyyy/MM/dd 形式の文字列に変換して追加
+          const row = data[i].slice(); // 配列をコピー
+          row[0] = Utilities.formatDate(dateStr, 'Asia/Tokyo', 'yyyy/MM/dd');
+          filteredData.push(row);
         }
       }
     }
@@ -520,18 +524,22 @@ function getWorkRecordData(startDate, endDate) {
   try {
     initialize();
     const sheet = spreadsheet.getSheetByName(SHEETS.WORK_RECORDS);
-    const data = sheet.getDataRange().getValues();
+    // ヘッダーを除いたデータを取得
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
     
     const filteredData = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // 日付のタイムゾーンを考慮して比較
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T23:59:59');
     
-    for (let i = 1; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       const dateStr = data[i][0];
-      if (dateStr) {
-        const date = new Date(dateStr);
-        if (date >= start && date <= end) {
-          filteredData.push(data[i]);
+      if (dateStr && typeof dateStr.getMonth === 'function') { // Dateオブジェクトかチェック
+        if (dateStr >= start && dateStr <= end) {
+          // 日付を yyyy/MM/dd 形式の文字列に変換して追加
+          const row = data[i].slice(); // 配列をコピー
+          row[0] = Utilities.formatDate(dateStr, 'Asia/Tokyo', 'yyyy/MM/dd');
+          filteredData.push(row);
         }
       }
     }

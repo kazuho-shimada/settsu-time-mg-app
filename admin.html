@@ -41,7 +41,7 @@
     }
     
     .back-link:hover {
-      background: rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.3) !important;
     }
     
     .container {
@@ -300,14 +300,14 @@
 <body>
   <div class="header">
     <h1>管理画面</h1>
-    <a href="?" class="back-link">← メイン画面に戻る</a>
+    <button onclick="navigateToMain()" class="back-link">← メイン画面に戻る</button>
   </div>
   
   <div class="container">
     <div class="tabs">
-      <button class="tab active" onclick="showTab('employees')">社員管理</button>
-      <button class="tab" onclick="showTab('worktypes')">作業項目管理</button>
-      <button class="tab" onclick="showTab('export')">データ出力</button>
+      <button class="tab active" onclick="showTab(event, 'employees')">社員管理</button>
+      <button class="tab" onclick="showTab(event, 'worktypes')">作業項目管理</button>
+      <button class="tab" onclick="showTab(event, 'export')">データ出力</button>
     </div>
     
     <div class="tab-content">
@@ -422,10 +422,10 @@
     }
     
     // タブ切り替え
-    function showTab(tabName) {
+    function showTab(event, tabName) {
       // タブボタンの状態更新
       document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-      event.target.classList.add('active');
+      event.currentTarget.classList.add('active');
       
       // タブコンテンツの表示切り替え
       document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
@@ -708,6 +708,12 @@
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+    }
+    
+    // メイン画面への遷移
+    function navigateToMain() {
+      const url = google.script.url.replace(/\?.*$/, '');
+      window.top.location.href = url;
     }
     
     // メッセージ表示

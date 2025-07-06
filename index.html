@@ -272,8 +272,8 @@
     }
     
     .admin-link:hover {
-      background: white;
-      color: #333;
+      background: white !important;
+      color: #333 !important;
     }
     
     /* モーダル */
@@ -410,7 +410,7 @@
     <div class="datetime" id="datetime"></div>
   </div>
   
-  <a href="?page=admin" class="admin-link">管理画面</a>
+  <button onclick="navigateToAdmin()" class="admin-link" style="border: none; background: rgba(255, 255, 255, 0.9); color: #666; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; cursor: pointer; transition: all 0.3s ease;">管理画面</button>
   
   <div class="main-container">
     <!-- 社員選択パネル -->
@@ -853,6 +853,22 @@
           messageArea.innerHTML = '';
         }, 3000);
       }
+    }
+    
+    // 管理画面への遷移
+    function navigateToAdmin() {
+      // デバッグ情報を確認
+      console.log('現在のURL:', window.location.href);
+      console.log('現在のsearch:', window.location.search);
+      
+      // Google Apps Scriptの本番環境URLを使用
+      const execUrl = 'https://script.google.com/macros/s/AKfycbwzONZroznpgf2RuGVGlahTDV7e_sdK3Tcae2UMRr2GIgqR-B-ApMEF6g619at95tvQ/exec';
+      const adminUrl = execUrl + '?page=admin';
+      
+      console.log('管理画面URL:', adminUrl);
+      
+      // 遷移実行
+      window.location.href = adminUrl;
     }
     
     // モーダル外クリックで閉じる
