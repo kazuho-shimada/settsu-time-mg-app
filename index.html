@@ -746,7 +746,18 @@
         .withSuccessHandler(function(result) {
           if (result.success) {
             // キャッシュを更新
-            attendanceCache[selectedEmployeeId] = result.attendance;
+            const existingAttendance = attendanceCache[selectedEmployeeId] || {};
+            const newAttendance = {
+              ...existingAttendance, // 既存の情報を保持 (checkInTimeなど)
+              ...result.attendance, // サーバーからの新しい情報で上書き
+            };
+
+            // サーバーからの戻り値にcheckInTimeがない場合、既存の値を維持する
+            if (!newAttendance.checkInTime && existingAttendance.checkInTime) {
+              newAttendance.checkInTime = existingAttendance.checkInTime;
+            }
+
+            attendanceCache[selectedEmployeeId] = newAttendance;
             
             showMessage(result.message, 'success');
             updateAttendanceDisplay();

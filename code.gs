@@ -313,19 +313,24 @@ function recordCheckOut(employeeId) {
     // 今日の出勤記録を探して退勤時間を更新
     let checkInTime = '';
     let foundRow = -1;
-    
-    for (let i = lastRow; i >= 2; i--) {
-      const rowDate = sheet.getRange(i, 1).getValue();
-      const rowEmployeeId = sheet.getRange(i, 2).getValue();
-      
-      if (rowDate === today && rowEmployeeId === employeeId) {
-        foundRow = i;
-        checkInTime = sheet.getRange(i, 4).getValue() || '';
-        break;
+
+    if (lastRow >= 2) {
+      // getDisplayValues() を使って日付を文字列として比較する
+      const data = sheet.getRange(2, 1, lastRow - 1, 4).getDisplayValues();
+      for (let i = data.length - 1; i >= 0; i--) {
+        const rowDate = data[i][0]; // 日付
+        const rowEmployeeId = data[i][1]; // 社員ID
+        
+        if (rowDate === today && String(rowEmployeeId) === String(employeeId)) {
+          foundRow = i + 2; // 1-basedの行番号に変換
+          checkInTime = data[i][3] || ''; // 出勤時間
+          break;
+        }
       }
     }
     
     if (foundRow > 0) {
+      // 退勤時間を更新
       sheet.getRange(foundRow, 5).setValue(time);
     } else {
       // 出勤記録がない場合は退勤のみ記録
@@ -337,7 +342,7 @@ function recordCheckOut(employeeId) {
     
     // 更新された勤怠情報を返す
     const updatedAttendance = {
-      hasCheckedIn: true,
+      hasCheckedIn: !!checkInTime, // 出勤記録があればtrue
       hasCheckedOut: true,
       checkInTime: checkInTime,
       checkOutTime: time
