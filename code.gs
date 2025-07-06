@@ -10,17 +10,25 @@ const SHEETS = {
   WORK_TYPES: '作業項目マスタ'
 };
 
+// キャッシュ設定
+const CACHE_KEY_PREFIX = 'attendance_';
+const CACHE_DURATION = 300; // 5分間キャッシュ
+
 // グローバル変数
 let spreadsheet;
 
 // 初期化処理
 function initialize() {
-  try {
-    spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-    setupSheets();
-  } catch (e) {
-    console.error('初期化エラー:', e);
+  if (!spreadsheet) {
+    try {
+      spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+      setupSheets();
+    } catch (e) {
+      console.error('初期化エラー:', e);
+      throw new Error('スプレッドシートの初期化に失敗しました');
+    }
   }
+  return spreadsheet;
 }
 
 // シートの設定
@@ -93,9 +101,31 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// HTMLファイルのインクルード
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+// === キャッシュ関連 ===
+
+// キャッシュから取得
+function getFromCache(key) {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(CACHE_KEY_PREFIX + key);
+  return cached ? JSON.parse(cached) : null;
+}
+
+// キャッシュに保存
+function saveToCache(key, data) {
+  const cache = CacheService.getScriptCache();
+  cache.put(CACHE_KEY_PREFIX + key, JSON.stringify(data), CACHE_DURATION);
+}
+
+// キャッシュをクリア
+function clearCache(pattern) {
+  const cache = CacheService.getScriptCache();
+  if (pattern) {
+    cache.remove(CACHE_KEY_PREFIX + pattern);
+  } else {
+    // 全体をクリアする方法がないので、既知のキーをクリア
+    const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+    cache.remove(CACHE_KEY_PREFIX + 'all_attendance_' + today);
+  }
 }
 
 // === データ取得系関数 ===
@@ -103,6 +133,10 @@ function include(filename) {
 // 社員一覧取得
 function getEmployees() {
   try {
+    // キャッシュチェック
+    const cached = getFromCache('employees');
+    if (cached) return cached;
+    
     initialize();
     const sheet = spreadsheet.getSheetByName(SHEETS.EMPLOYEES);
     const data = sheet.getDataRange().getValues();
@@ -117,6 +151,9 @@ function getEmployees() {
       }
     }
     
+    // キャッシュに保存
+    saveToCache('employees', employees);
+    
     return employees;
   } catch (e) {
     console.error('社員取得エラー:', e);
@@ -127,6 +164,10 @@ function getEmployees() {
 // 作業項目一覧取得
 function getWorkTypes() {
   try {
+    // キャッシュチェック
+    const cached = getFromCache('work_types');
+    if (cached) return cached;
+    
     initialize();
     const sheet = spreadsheet.getSheetByName(SHEETS.WORK_TYPES);
     const data = sheet.getDataRange().getValues();
@@ -141,6 +182,9 @@ function getWorkTypes() {
       }
     }
     
+    // キャッシュに保存
+    saveToCache('work_types', workTypes);
+    
     return workTypes;
   } catch (e) {
     console.error('作業項目取得エラー:', e);
@@ -148,18 +192,26 @@ function getWorkTypes() {
   }
 }
 
-// 当日の勤怠状況取得
-function getTodayAttendance(employeeId) {
+// 全社員の当日勤怠状況を一括取得
+function getAllTodayAttendance() {
   try {
+    const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+    
+    // キャッシュチェック
+    const cached = getFromCache('all_attendance_' + today);
+    if (cached) return cached;
+    
     initialize();
     const sheet = spreadsheet.getSheetByName(SHEETS.ATTENDANCE);
     const data = sheet.getDataRange().getValues();
     
-    const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+    const attendanceMap = {};
     
+    // 当日のデータのみ抽出
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === today && data[i][1] === employeeId) {
-        return {
+      if (data[i][0] === today) {
+        const employeeId = data[i][1];
+        attendanceMap[employeeId] = {
           hasCheckedIn: !!data[i][3],
           hasCheckedOut: !!data[i][4],
           checkInTime: data[i][3] || '',
@@ -168,7 +220,21 @@ function getTodayAttendance(employeeId) {
       }
     }
     
-    return {
+    // キャッシュに保存
+    saveToCache('all_attendance_' + today, attendanceMap);
+    
+    return attendanceMap;
+  } catch (e) {
+    console.error('全体勤怠状況取得エラー:', e);
+    return {};
+  }
+}
+
+// 当日の勤怠状況取得（個別）
+function getTodayAttendance(employeeId) {
+  try {
+    const allAttendance = getAllTodayAttendance();
+    return allAttendance[employeeId] || {
       hasCheckedIn: false,
       hasCheckedOut: false,
       checkInTime: '',
@@ -205,9 +271,21 @@ function recordCheckIn(employeeId) {
     const sheet = spreadsheet.getSheetByName(SHEETS.ATTENDANCE);
     sheet.appendRow([today, employeeId, employee.name, time, '', '']);
     
+    // キャッシュをクリア
+    clearCache('all_attendance_' + today);
+    
+    // 更新された勤怠情報を返す
+    const updatedAttendance = {
+      hasCheckedIn: true,
+      hasCheckedOut: false,
+      checkInTime: time,
+      checkOutTime: ''
+    };
+    
     return { 
       success: true, 
-      message: `${employee.name}さんの出勤を記録しました（${time}）`
+      message: `${employee.name}さんの出勤を記録しました（${time}）`,
+      attendance: updatedAttendance
     };
   } catch (e) {
     console.error('出勤記録エラー:', e);
@@ -230,25 +308,45 @@ function recordCheckOut(employeeId) {
     const time = Utilities.formatDate(now, 'Asia/Tokyo', 'HH:mm');
     
     const sheet = spreadsheet.getSheetByName(SHEETS.ATTENDANCE);
-    const data = sheet.getDataRange().getValues();
+    const lastRow = sheet.getLastRow();
     
     // 今日の出勤記録を探して退勤時間を更新
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === today && data[i][1] === employeeId) {
-        sheet.getRange(i + 1, 5).setValue(time);
-        return { 
-          success: true, 
-          message: `${employee.name}さんの退勤を記録しました（${time}）`
-        };
+    let checkInTime = '';
+    let foundRow = -1;
+    
+    for (let i = lastRow; i >= 2; i--) {
+      const rowDate = sheet.getRange(i, 1).getValue();
+      const rowEmployeeId = sheet.getRange(i, 2).getValue();
+      
+      if (rowDate === today && rowEmployeeId === employeeId) {
+        foundRow = i;
+        checkInTime = sheet.getRange(i, 4).getValue() || '';
+        break;
       }
     }
     
-    // 出勤記録がない場合は退勤のみ記録
-    sheet.appendRow([today, employeeId, employee.name, '', time, '退勤のみ']);
+    if (foundRow > 0) {
+      sheet.getRange(foundRow, 5).setValue(time);
+    } else {
+      // 出勤記録がない場合は退勤のみ記録
+      sheet.appendRow([today, employeeId, employee.name, '', time, '退勤のみ']);
+    }
+    
+    // キャッシュをクリア
+    clearCache('all_attendance_' + today);
+    
+    // 更新された勤怠情報を返す
+    const updatedAttendance = {
+      hasCheckedIn: true,
+      hasCheckedOut: true,
+      checkInTime: checkInTime,
+      checkOutTime: time
+    };
     
     return { 
       success: true, 
-      message: `${employee.name}さんの退勤を記録しました（${time}）`
+      message: `${employee.name}さんの退勤を記録しました（${time}）`,
+      attendance: updatedAttendance
     };
   } catch (e) {
     console.error('退勤記録エラー:', e);
@@ -300,6 +398,10 @@ function addEmployee(id, name) {
     }
     
     sheet.appendRow([id, name]);
+    
+    // キャッシュをクリア
+    clearCache('employees');
+    
     return { success: true, message: '社員を追加しました' };
   } catch (e) {
     console.error('社員追加エラー:', e);
@@ -317,6 +419,10 @@ function deleteEmployee(id) {
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]) === String(id)) {
         sheet.deleteRow(i + 1);
+        
+        // キャッシュをクリア
+        clearCache('employees');
+        
         return { success: true, message: '社員を削除しました' };
       }
     }
@@ -341,6 +447,10 @@ function addWorkType(id, name) {
     }
     
     sheet.appendRow([id, name]);
+    
+    // キャッシュをクリア
+    clearCache('work_types');
+    
     return { success: true, message: '作業項目を追加しました' };
   } catch (e) {
     console.error('作業項目追加エラー:', e);
@@ -358,6 +468,10 @@ function deleteWorkType(id) {
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]) === String(id)) {
         sheet.deleteRow(i + 1);
+        
+        // キャッシュをクリア
+        clearCache('work_types');
+        
         return { success: true, message: '作業項目を削除しました' };
       }
     }
@@ -377,10 +491,16 @@ function getAttendanceData(startDate, endDate) {
     const data = sheet.getDataRange().getValues();
     
     const filteredData = [];
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
     for (let i = 1; i < data.length; i++) {
-      const date = new Date(data[i][0]);
-      if (date >= new Date(startDate) && date <= new Date(endDate)) {
-        filteredData.push(data[i]);
+      const dateStr = data[i][0];
+      if (dateStr) {
+        const date = new Date(dateStr);
+        if (date >= start && date <= end) {
+          filteredData.push(data[i]);
+        }
       }
     }
     
@@ -398,10 +518,16 @@ function getWorkRecordData(startDate, endDate) {
     const data = sheet.getDataRange().getValues();
     
     const filteredData = [];
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
     for (let i = 1; i < data.length; i++) {
-      const date = new Date(data[i][0]);
-      if (date >= new Date(startDate) && date <= new Date(endDate)) {
-        filteredData.push(data[i]);
+      const dateStr = data[i][0];
+      if (dateStr) {
+        const date = new Date(dateStr);
+        if (date >= start && date <= end) {
+          filteredData.push(data[i]);
+        }
       }
     }
     
