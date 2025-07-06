@@ -502,11 +502,11 @@
   
   <script>
     // グローバル変数
-    let employees = [];
-    let workTypes = [];
-    let selectedEmployeeId = null;
-    let attendanceCache = {}; // 勤怠情報のキャッシュ
-    let currentDate = null;
+    var employees = [];
+    var workTypes = [];
+    var selectedEmployeeId = null;
+    var attendanceCache = {}; // 勤怠情報のキャッシュ
+    var currentDate = null;
     
     // 初期化処理
     document.addEventListener('DOMContentLoaded', function() {
@@ -548,6 +548,11 @@
     
     // 日時更新
     function updateDateTime() {
+      const datetimeElement = document.getElementById('datetime');
+      if (!datetimeElement) {
+        return;
+      }
+      
       const now = new Date();
       const options = {
         weekday: 'long',
@@ -558,8 +563,7 @@
         minute: '2-digit',
         second: '2-digit'
       };
-      document.getElementById('datetime').textContent = 
-        now.toLocaleDateString('ja-JP', options);
+      datetimeElement.textContent = now.toLocaleDateString('ja-JP', options);
     }
     
     // 社員データ読み込み
@@ -858,14 +862,16 @@
     
     // 管理画面への遷移
     function navigateToAdmin() {
-      const scriptUrl = '<?= scriptUrl ?>';
-      const adminUrl = scriptUrl + '?page=admin';
-      
-      console.log('現在のURL:', window.location.href);
-      console.log('管理画面URL:', adminUrl);
-      
-      // 遷移実行
-      window.location.href = adminUrl;
+      // 管理画面のURLを取得して遷移
+      google.script.run
+        .withSuccessHandler(function(url) {
+          window.location.href = url + '?page=admin';
+        })
+        .withFailureHandler(function(error) {
+          showMessage('管理画面への遷移に失敗しました', 'error');
+          console.error('管理画面遷移エラー:', error);
+        })
+        .getScriptUrl();
     }
     
     // モーダル外クリックで閉じる

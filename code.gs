@@ -84,24 +84,24 @@ function getOrCreateSheet(sheetName) {
 function doGet(e) {
   initialize();
   
-  const params = e.parameter || {};
-  const scriptUrl = ScriptApp.getService().getUrl();
-  
-  // 管理画面
-  if (params.page === 'admin') {
+  // パラメータに応じて表示するページを切り替える
+  if (e && e.parameter && e.parameter.page === 'admin') {
     const template = HtmlService.createTemplateFromFile('admin');
-    template.scriptUrl = scriptUrl;
     return template.evaluate()
-      .setTitle('管理画面')
+      .setTitle('管理画面 - 勤怠管理システム')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
   
-  // メイン画面
+  // デフォルトはメイン画面
   const template = HtmlService.createTemplateFromFile('index');
-  template.scriptUrl = scriptUrl;
   return template.evaluate()
     .setTitle('勤怠管理システム')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// WebアプリのURLを取得する
+function getScriptUrl() {
+  return ScriptApp.getService().getUrl();
 }
 
 // === キャッシュ関連 ===

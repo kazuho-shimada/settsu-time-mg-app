@@ -399,8 +399,8 @@
   </div>
   
   <script>
-    let employees = [];
-    let workTypes = [];
+    var employees = [];
+    var workTypes = [];
     
     // 初期化
     document.addEventListener('DOMContentLoaded', function() {
@@ -421,6 +421,52 @@
       document.getElementById('attendance-end').value = formatDate(lastDay);
       document.getElementById('work-start').value = formatDate(firstDay);
       document.getElementById('work-end').value = formatDate(lastDay);
+    }
+
+    // メイン画面への遷移
+    function navigateToMain() {
+      console.log('navigateToMain 開始');
+      
+      // 方法1: getScriptUrl()を使用
+      google.script.run
+        .withSuccessHandler(function(url) {
+          console.log('getScriptUrl 成功:', url);
+          if (url) {
+            console.log('メイン画面に遷移中:', url);
+            window.location.href = url;
+          } else {
+            console.error('URLが空です');
+            fallbackNavigation();
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('getScriptUrl エラー:', error);
+          fallbackNavigation();
+        })
+        .getScriptUrl();
+    }
+    
+    // フォールバック用の戻り方法
+    function fallbackNavigation() {
+      console.log('フォールバック実行中');
+      
+      // 方法2: 現在のURLからパラメータを除去
+      try {
+        const currentUrl = window.location.href;
+        const baseUrl = currentUrl.split('?')[0];
+        console.log('ベースURLで遷移:', baseUrl);
+        window.location.href = baseUrl;
+      } catch (e) {
+        console.error('ベースURL遷移エラー:', e);
+        
+        // 方法3: ブラウザの戻る機能
+        console.log('ブラウザの戻る機能を使用');
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          showMessage('メイン画面への遷移に失敗しました。ブラウザを更新してください。', 'error');
+        }
+      }
     }
     
     // タブ切り替え
@@ -710,17 +756,6 @@
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-    }
-    
-    // メイン画面への遷移
-    function navigateToMain() {
-      const scriptUrl = '<?= scriptUrl ?>';
-      
-      console.log('現在のURL:', window.location.href);
-      console.log('メイン画面URL:', scriptUrl);
-      
-      // 遷移実行
-      window.location.href = scriptUrl;
     }
     
     // メッセージ表示
