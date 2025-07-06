@@ -302,7 +302,9 @@
 <body>
   <div class="header">
     <h1>管理画面</h1>
-    <button onclick="navigateToMain()" class="back-link">← メイン画面に戻る</button>
+    <div>
+      <button onclick="openMainInNewTab()" class="back-link">← メイン画面に戻る</button>
+    </div>
   </div>
   
   <div class="container">
@@ -423,50 +425,22 @@
       document.getElementById('work-end').value = formatDate(lastDay);
     }
 
-    // メイン画面への遷移
-    function navigateToMain() {
-      console.log('navigateToMain 開始');
-      
-      // 方法1: getScriptUrl()を使用
+    // メイン画面への遷移（新しいタブで開く）
+    function openMainInNewTab() {
+      console.log('メイン画面を新しいタブで開く');
       google.script.run
         .withSuccessHandler(function(url) {
-          console.log('getScriptUrl 成功:', url);
-          if (url) {
-            console.log('メイン画面に遷移中:', url);
-            window.location.href = url;
-          } else {
-            console.error('URLが空です');
-            fallbackNavigation();
+          console.log('メイン画面URL取得成功:', url);
+          const newTab = window.open(url, '_blank');
+          if (!newTab) {
+            showMessage('ポップアップがブロックされました。ブラウザの設定を確認してください。', 'error');
           }
         })
         .withFailureHandler(function(error) {
-          console.error('getScriptUrl エラー:', error);
-          fallbackNavigation();
+          console.error('URL取得失敗:', error);
+          showMessage('メイン画面のURL取得に失敗しました', 'error');
         })
         .getScriptUrl();
-    }
-    
-    // フォールバック用の戻り方法
-    function fallbackNavigation() {
-      console.log('フォールバック実行中');
-      
-      // 方法2: 現在のURLからパラメータを除去
-      try {
-        const currentUrl = window.location.href;
-        const baseUrl = currentUrl.split('?')[0];
-        console.log('ベースURLで遷移:', baseUrl);
-        window.location.href = baseUrl;
-      } catch (e) {
-        console.error('ベースURL遷移エラー:', e);
-        
-        // 方法3: ブラウザの戻る機能
-        console.log('ブラウザの戻る機能を使用');
-        if (window.history.length > 1) {
-          window.history.back();
-        } else {
-          showMessage('メイン画面への遷移に失敗しました。ブラウザを更新してください。', 'error');
-        }
-      }
     }
     
     // タブ切り替え

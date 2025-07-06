@@ -82,21 +82,42 @@ function getOrCreateSheet(sheetName) {
 
 // Webアプリのエントリーポイント
 function doGet(e) {
-  initialize();
-  
-  // パラメータに応じて表示するページを切り替える
-  if (e && e.parameter && e.parameter.page === 'admin') {
-    const template = HtmlService.createTemplateFromFile('admin');
+  try {
+    console.log('doGet called with parameters:', e ? e.parameter : 'no parameters');
+    
+    initialize();
+    
+    // パラメータに応じて表示するページを切り替える
+    if (e && e.parameter && e.parameter.page === 'admin') {
+      console.log('Admin page requested');
+      const template = HtmlService.createTemplateFromFile('admin');
+      return template.evaluate()
+        .setTitle('管理画面 - 勤怠管理システム')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+    
+    // デフォルトはメイン画面（tパラメータは無視）
+    console.log('Main page requested');
+    const template = HtmlService.createTemplateFromFile('index');
     return template.evaluate()
-      .setTitle('管理画面 - 勤怠管理システム')
+      .setTitle('勤怠管理システム')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (error) {
+    console.error('doGet error:', error);
+    
+    // エラー時のフォールバック
+    const errorHtml = HtmlService.createHtmlOutput(`
+      <html>
+        <body>
+          <h1>エラーが発生しました</h1>
+          <p>システムの初期化中にエラーが発生しました。</p>
+          <p>しばらく時間をおいてから再度お試しください。</p>
+          <button onclick="window.location.reload()">再読み込み</button>
+        </body>
+      </html>
+    `);
+    return errorHtml.setTitle('エラー - 勤怠管理システム');
   }
-  
-  // デフォルトはメイン画面
-  const template = HtmlService.createTemplateFromFile('index');
-  return template.evaluate()
-    .setTitle('勤怠管理システム')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 // WebアプリのURLを取得する
