@@ -239,20 +239,44 @@
     
     .action-buttons {
       display: flex;
-      gap: 1rem;
+      flex-direction: column;
+      gap: 1.5rem;
       justify-content: center;
       margin: 2rem 0;
     }
     
+    .main-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+    
+    .sub-actions {
+      display: flex;
+      gap: 0.8rem;
+      justify-content: center;
+    }
+    
     .btn {
-      padding: 1rem 2rem;
-      font-size: 1.2rem;
       font-weight: 600;
       border: none;
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.3s ease;
-      min-width: 140px;
+    }
+    
+    .btn-main {
+      padding: 1.2rem 2.5rem;
+      font-size: 1.3rem;
+      min-width: 160px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .btn-sub {
+      padding: 0.8rem 1.5rem;
+      font-size: 1rem;
+      min-width: 110px;
+      opacity: 0.9;
     }
     
     .btn:disabled {
@@ -261,33 +285,51 @@
     }
     
     .btn-checkin {
-      background: #28a745;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
       color: white;
+      border: 1px solid rgba(255,255,255,0.2);
     }
     
     .btn-checkin:hover:not(:disabled) {
-      background: #218838;
+      background: linear-gradient(135deg, #2563eb, #1e40af);
       transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
     }
     
     .btn-checkout {
-      background: #dc3545;
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
       color: white;
+      border: 1px solid rgba(255,255,255,0.2);
     }
     
     .btn-checkout:hover:not(:disabled) {
-      background: #c82333;
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
       transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
     }
     
     .btn-clear {
-      background: #ffc107;
-      color: #212529;
+      background: linear-gradient(135deg, #64748b, #475569);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
     }
     
     .btn-clear:hover:not(:disabled) {
-      background: #e0a800;
+      background: linear-gradient(135deg, #475569, #334155);
       transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(100, 116, 139, 0.4);
+    }
+    
+    .btn-work-record {
+      background: linear-gradient(135deg, #06b6d4, #0891b2);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .btn-work-record:hover:not(:disabled) {
+      background: linear-gradient(135deg, #0891b2, #0e7490);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(6, 182, 212, 0.4);
     }
     
     .message {
@@ -440,12 +482,24 @@
         max-height: 40vh;
       }
       
-      .action-buttons {
+      .main-actions,
+      .sub-actions {
         flex-direction: column;
+        gap: 0.8rem;
       }
       
       .btn {
         width: 100%;
+      }
+      
+      .btn-main {
+        padding: 1rem 1.5rem;
+        font-size: 1.2rem;
+      }
+      
+      .btn-sub {
+        padding: 0.7rem 1.2rem;
+        font-size: 0.95rem;
       }
     }
     
@@ -585,15 +639,25 @@
         </div>
         
         <div class="action-buttons">
-          <button class="btn btn-checkin" id="checkin-btn" onclick="handleCheckIn()">
-            出勤
-          </button>
-          <button class="btn btn-checkout" id="checkout-btn" onclick="handleCheckOut()">
-            退勤
-          </button>
-          <button class="btn btn-clear" id="clear-btn" onclick="handleClear()">
-            クリア
-          </button>
+          <!-- メインアクション -->
+          <div class="main-actions">
+            <button class="btn btn-main btn-checkin" id="checkin-btn" onclick="handleCheckIn()">
+              出勤
+            </button>
+            <button class="btn btn-main btn-checkout" id="checkout-btn" onclick="handleCheckOut()">
+              退勤
+            </button>
+          </div>
+          
+          <!-- サブアクション -->
+          <div class="sub-actions">
+            <button class="btn btn-sub btn-clear" id="clear-btn" onclick="handleClear()">
+              クリア
+            </button>
+            <button class="btn btn-sub btn-work-record" id="work-record-btn" onclick="handleWorkRecord()">
+              作業記録
+            </button>
+          </div>
         </div>
         
         <div id="message-area"></div>
@@ -878,6 +942,7 @@
       const checkinBtn = document.getElementById('checkin-btn');
       const checkoutBtn = document.getElementById('checkout-btn');
       const clearBtn = document.getElementById('clear-btn');
+      const workRecordBtn = document.getElementById('work-record-btn');
       const checkinTimeEl = document.getElementById('checkin-time');
       const checkoutTimeEl = document.getElementById('checkout-time');
       
@@ -896,6 +961,7 @@
         checkinBtn.disabled = true;
         checkoutBtn.disabled = true;
         clearBtn.disabled = true;
+        workRecordBtn.disabled = true;
         statusDiv.textContent = 'データ読み込み中...';
         statusDiv.className = 'status-display';
         return;
@@ -909,6 +975,7 @@
           checkinBtn.disabled = false;
           checkoutBtn.disabled = true;
           clearBtn.disabled = true;
+          workRecordBtn.disabled = false;
           break;
           
         case AttendanceState.CHECKED_IN:
@@ -917,6 +984,7 @@
           checkinBtn.disabled = true;
           checkoutBtn.disabled = false;
           clearBtn.disabled = false;
+          workRecordBtn.disabled = false;
           break;
           
         case AttendanceState.COMPLETED:
@@ -925,6 +993,7 @@
           checkinBtn.disabled = true;
           checkoutBtn.disabled = true;
           clearBtn.disabled = false;
+          workRecordBtn.disabled = false;
           break;
       }
       
@@ -934,6 +1003,8 @@
         if (processingButton !== 'checkin') checkinBtn.disabled = true;
         if (processingButton !== 'checkout') checkoutBtn.disabled = true;
         if (processingButton !== 'clear') clearBtn.disabled = true;
+        // 作業記録は処理中でも利用可能（他の処理に影響しないため）
+        // workRecordBtn.disabled = true;
       }
     }
     
@@ -952,7 +1023,6 @@
     
     // 読み込み完了管理
     function markLoadingStepCompleted(step) {
-      console.log('Marking step completed:', step);
       loadingSteps[step] = true;
       let elementId;
       switch(step) {
@@ -977,7 +1047,6 @@
     
     function checkAllLoadingCompleted() {
       const allCompleted = Object.values(loadingSteps).every(step => step === true);
-      console.log('Loading steps:', loadingSteps, 'All completed:', allCompleted);
       
       if (allCompleted) {
         setTimeout(() => {
@@ -1110,6 +1179,24 @@
           console.error('退勤処理エラー:', error);
         })
         .recordCheckOut(targetEmployeeId);
+    }
+    
+    // 作業記録処理
+    function handleWorkRecord() {
+      if (!selectedEmployeeId || isInitialLoading) {
+        if (isInitialLoading) {
+          showMessage('データ読み込み中のため操作できません', 'error');
+        } else {
+          showMessage('社員を選択してください', 'error');
+        }
+        return;
+      }
+      
+      // 作業記録入力モーダルを直接表示
+      document.getElementById('work-input-modal').classList.add('show');
+      
+      // フォームリセット
+      document.getElementById('work-form').reset();
     }
     
     // クリア処理
