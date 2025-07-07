@@ -466,6 +466,69 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    
+    /* 初期読み込み中の表示 */
+    .initial-loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    
+    .initial-loading.hidden {
+      display: none;
+    }
+    
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #2196f3;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1rem;
+    }
+    
+    .loading-text {
+      font-size: 1.2rem;
+      color: #333;
+      margin-bottom: 0.5rem;
+    }
+    
+    .loading-steps {
+      font-size: 0.9rem;
+      color: #666;
+      text-align: center;
+    }
+    
+    .loading-step {
+      margin: 0.2rem 0;
+    }
+    
+    .loading-step.completed {
+      color: #28a745;
+    }
+    
+    .loading-step.completed::before {
+      content: '✓ ';
+    }
+    
+    .loading-step:not(.completed)::before {
+      content: '○ ';
+    }
+    
+    /* 初期読み込み中は操作を無効化 */
+    .main-container.loading {
+      pointer-events: none;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
@@ -476,7 +539,18 @@
   
   <button onclick="navigateToAdmin()" class="admin-link">管理画面</button>
   
-  <div class="main-container">
+  <!-- 初期読み込み中の表示 -->
+  <div class="initial-loading" id="initial-loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">データを読み込み中...</div>
+    <div class="loading-steps">
+      <div class="loading-step" id="loading-employees">社員データ読み込み中</div>
+      <div class="loading-step" id="loading-work-types">作業項目データ読み込み中</div>
+      <div class="loading-step" id="loading-attendance">勤怠データ読み込み中</div>
+    </div>
+  </div>
+  
+  <div class="main-container" id="main-container">
     <!-- 社員選択パネル -->
     <div class="employee-panel">
       <h2 class="panel-title">社員を選択してください</h2>
@@ -575,6 +649,8 @@
     var currentDate = null;
     var isProcessing = false; // 処理中フラグ
     var processingEmployeeId = null; // 処理中の社員ID
+    var isInitialLoading = true; // 初期読み込み中フラグ
+    var loadingSteps = { employees: false, work_types: false, attendance: false }; // 読み込み完了状況
     
     // 状態定数
     const AttendanceState = {
@@ -592,6 +668,10 @@
       currentDate = getCurrentDateString();
       updateDateTime();
       setInterval(updateDateTime, 1000);
+      
+      // 初期読み込み中は操作を無効化
+      document.getElementById('main-container').classList.add('loading');
+      
       loadEmployees();
       loadWorkTypes();
       
@@ -647,12 +727,14 @@
         .withSuccessHandler(function(data) {
           employees = data || [];
           renderEmployees();
+          markLoadingStepCompleted('employees');
           // 初回の勤怠状況を一括取得
           loadAllAttendanceStatus();
         })
         .withFailureHandler(function(error) {
           showMessage('社員データの読み込みに失敗しました', 'error');
           console.error('社員データ読み込みエラー:', error);
+          markLoadingStepCompleted('employees'); // エラーでも完了扱い
         })
         .getEmployees();
     }
@@ -663,9 +745,11 @@
         .withSuccessHandler(function(data) {
           attendanceCache = data || {};
           renderEmployees(); // 社員カードの状態表示を更新
+          markLoadingStepCompleted('attendance');
         })
         .withFailureHandler(function(error) {
           console.error('勤怠状況一括取得エラー:', error);
+          markLoadingStepCompleted('attendance'); // エラーでも完了扱い
         })
         .getAllTodayAttendance();
     }
@@ -676,9 +760,11 @@
         .withSuccessHandler(function(data) {
           workTypes = data || [];
           renderWorkTypeOptions();
+          markLoadingStepCompleted('work_types');
         })
         .withFailureHandler(function(error) {
           console.error('作業項目読み込みエラー:', error);
+          markLoadingStepCompleted('work_types'); // エラーでも完了扱い
         })
         .getWorkTypes();
     }
@@ -730,7 +816,12 @@
     
     // 社員選択
     function selectEmployee(employeeId) {
-      // 処理中は社員切り替えを防ぐ
+      // 初期読み込み中または処理中は社員切り替えを防ぐ
+      if (isInitialLoading) {
+        showMessage('データ読み込み中のため操作できません', 'error');
+        return;
+      }
+      
       if (isProcessing) {
         showMessage('処理中のため社員を切り替えできません', 'error');
         return;
@@ -800,6 +891,16 @@
       // 処理中の場合は該当する社員のボタンを特別に制御
       const isCurrentEmployeeProcessing = isProcessing && processingEmployeeId === selectedEmployeeId;
       
+      // 初期読み込み中または処理中は全ボタンを無効化
+      if (isInitialLoading) {
+        checkinBtn.disabled = true;
+        checkoutBtn.disabled = true;
+        clearBtn.disabled = true;
+        statusDiv.textContent = 'データ読み込み中...';
+        statusDiv.className = 'status-display';
+        return;
+      }
+      
       // 通常の状態に基づくボタン制御
       switch(attendance.state) {
         case AttendanceState.NOT_CHECKED_IN:
@@ -849,9 +950,52 @@
       return null;
     }
     
+    // 読み込み完了管理
+    function markLoadingStepCompleted(step) {
+      console.log('Marking step completed:', step);
+      loadingSteps[step] = true;
+      let elementId;
+      switch(step) {
+        case 'employees':
+          elementId = 'loading-employees';
+          break;
+        case 'work_types':
+          elementId = 'loading-work-types';
+          break;
+        case 'attendance':
+          elementId = 'loading-attendance';
+          break;
+      }
+      
+      const stepElement = document.getElementById(elementId);
+      if (stepElement) {
+        stepElement.classList.add('completed');
+        stepElement.textContent = stepElement.textContent.replace('読み込み中', '読み込み完了');
+      }
+      checkAllLoadingCompleted();
+    }
+    
+    function checkAllLoadingCompleted() {
+      const allCompleted = Object.values(loadingSteps).every(step => step === true);
+      console.log('Loading steps:', loadingSteps, 'All completed:', allCompleted);
+      
+      if (allCompleted) {
+        setTimeout(() => {
+          document.getElementById('initial-loading').classList.add('hidden');
+          document.getElementById('main-container').classList.remove('loading');
+          isInitialLoading = false;
+          
+          // 選択中の社員がいる場合は表示を更新
+          if (selectedEmployeeId) {
+            updateAttendanceDisplay();
+          }
+        }, 500); // 少し遅らせて完了感を演出
+      }
+    }
+    
     // 出勤処理
     function handleCheckIn() {
-      if (!selectedEmployeeId || isProcessing) return;
+      if (!selectedEmployeeId || isInitialLoading || isProcessing) return;
       
       // 処理状態設定
       isProcessing = true;
@@ -908,7 +1052,7 @@
     
     // 退勤処理
     function handleCheckOut() {
-      if (!selectedEmployeeId || isProcessing) return;
+      if (!selectedEmployeeId || isInitialLoading || isProcessing) return;
       
       // 処理状態設定
       isProcessing = true;
@@ -970,7 +1114,7 @@
     
     // クリア処理
     function handleClear() {
-      if (!selectedEmployeeId || isProcessing) return;
+      if (!selectedEmployeeId || isInitialLoading || isProcessing) return;
       
       const employee = employees.find(emp => emp.id === selectedEmployeeId);
       if (!confirm(`${employee.name}さんの本日の勤怠記録をクリアしますか？`)) {
