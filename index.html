@@ -797,6 +797,10 @@
       // 状態表示とボタン制御
       statusDiv.className = 'status-display';
       
+      // 処理中の場合は該当する社員のボタンを特別に制御
+      const isCurrentEmployeeProcessing = isProcessing && processingEmployeeId === selectedEmployeeId;
+      
+      // 通常の状態に基づくボタン制御
       switch(attendance.state) {
         case AttendanceState.NOT_CHECKED_IN:
           statusDiv.textContent = '未出勤';
@@ -822,6 +826,27 @@
           clearBtn.disabled = false;
           break;
       }
+      
+      // 処理中の場合は処理中でないボタンを全て無効化
+      if (isCurrentEmployeeProcessing) {
+        const processingButton = getCurrentProcessingButton();
+        if (processingButton !== 'checkin') checkinBtn.disabled = true;
+        if (processingButton !== 'checkout') checkoutBtn.disabled = true;
+        if (processingButton !== 'clear') clearBtn.disabled = true;
+      }
+    }
+    
+    // 現在処理中のボタンを特定する関数
+    function getCurrentProcessingButton() {
+      const checkinBtn = document.getElementById('checkin-btn');
+      const checkoutBtn = document.getElementById('checkout-btn');
+      const clearBtn = document.getElementById('clear-btn');
+      
+      if (checkinBtn.innerHTML.includes('処理中')) return 'checkin';
+      if (checkoutBtn.innerHTML.includes('処理中')) return 'checkout';
+      if (clearBtn.innerHTML.includes('処理中')) return 'clear';
+      
+      return null;
     }
     
     // 出勤処理
@@ -837,28 +862,30 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> 処理中...';
       
-      // 社員カードの状態を更新
+      // 社員カードとボタンの状態を更新
       renderEmployees();
+      updateAttendanceDisplay();
       
       google.script.run
         .withSuccessHandler(function(result) {
+          // 処理状態を先にリセット
+          isProcessing = false;
+          processingEmployeeId = null;
+          
           // 処理完了時に選択社員が変わっていないかチェック
           if (selectedEmployeeId === targetEmployeeId) {
             if (result.success) {
               // キャッシュを更新
               attendanceCache[targetEmployeeId] = result.attendance;
-              
               showMessage(result.message, 'success');
-              updateAttendanceDisplay();
             } else {
               showMessage(result.message, 'error');
             }
           }
           
-          // 処理状態をリセット
-          isProcessing = false;
-          processingEmployeeId = null;
-          renderEmployees(); // 社員カードの状態も更新
+          // 状態更新（処理状態リセット後に1回だけ実行）
+          renderEmployees();
+          updateAttendanceDisplay();
           
           btn.innerHTML = '出勤';
           btn.disabled = false;
@@ -870,6 +897,7 @@
           isProcessing = false;
           processingEmployeeId = null;
           renderEmployees();
+          updateAttendanceDisplay();
           
           btn.innerHTML = '出勤';
           btn.disabled = false;
@@ -891,19 +919,22 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> 処理中...';
       
-      // 社員カードの状態を更新
+      // 社員カードとボタンの状態を更新
       renderEmployees();
+      updateAttendanceDisplay();
       
       google.script.run
         .withSuccessHandler(function(result) {
+          // 処理状態を先にリセット
+          isProcessing = false;
+          processingEmployeeId = null;
+          
           // 処理完了時に選択社員が変わっていないかチェック
           if (selectedEmployeeId === targetEmployeeId) {
             if (result.success) {
               // キャッシュを更新
               attendanceCache[targetEmployeeId] = result.attendance;
-              
               showMessage(result.message, 'success');
-              updateAttendanceDisplay();
               
               // 作業記録確認モーダル表示
               setTimeout(() => {
@@ -914,10 +945,9 @@
             }
           }
           
-          // 処理状態をリセット
-          isProcessing = false;
-          processingEmployeeId = null;
-          renderEmployees(); // 社員カードの状態も更新
+          // 状態更新（処理状態リセット後に1回だけ実行）
+          renderEmployees();
+          updateAttendanceDisplay();
           
           btn.innerHTML = '退勤';
           btn.disabled = false;
@@ -929,6 +959,7 @@
           isProcessing = false;
           processingEmployeeId = null;
           renderEmployees();
+          updateAttendanceDisplay();
           
           btn.innerHTML = '退勤';
           btn.disabled = false;
@@ -955,31 +986,33 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> 処理中...';
       
-      // 社員カードの状態を更新
+      // 社員カードとボタンの状態を更新
       renderEmployees();
+      updateAttendanceDisplay();
       
       google.script.run
         .withSuccessHandler(function(result) {
+          // 処理状態を先にリセット
+          isProcessing = false;
+          processingEmployeeId = null;
+          
           // 処理完了時に選択社員が変わっていないかチェック
           if (selectedEmployeeId === targetEmployeeId) {
             if (result.success) {
               // キャッシュを更新
               attendanceCache[targetEmployeeId] = result.attendance;
-              
               showMessage(result.message, 'success');
-              updateAttendanceDisplay();
             } else {
               showMessage(result.message, 'error');
             }
           }
           
-          // 処理状態をリセット
-          isProcessing = false;
-          processingEmployeeId = null;
-          renderEmployees(); // 社員カードの状態も更新
+          // 状態更新（処理状態リセット後に1回だけ実行）
+          renderEmployees();
+          updateAttendanceDisplay();
           
           btn.innerHTML = 'クリア';
-          updateAttendanceDisplay(); // ボタン状態を再更新
+          btn.disabled = false;
         })
         .withFailureHandler(function(error) {
           showMessage('クリア処理でエラーが発生しました', 'error');
@@ -988,9 +1021,10 @@
           isProcessing = false;
           processingEmployeeId = null;
           renderEmployees();
+          updateAttendanceDisplay();
           
           btn.innerHTML = 'クリア';
-          updateAttendanceDisplay(); // ボタン状態を再更新
+          btn.disabled = false;
           console.error('クリア処理エラー:', error);
         })
         .clearAttendance(targetEmployeeId);
@@ -1027,6 +1061,11 @@
             showMessage(result.message, 'success');
             closeWorkModal();
             showThankYouMessage();
+            
+            // 作業記録保存後に勤怠状況を再更新
+            if (selectedEmployeeId) {
+              updateAttendanceDisplay();
+            }
           } else {
             showMessage(result.message, 'error');
           }
@@ -1043,6 +1082,11 @@
       document.getElementById('work-confirm-modal').classList.remove('show');
       document.getElementById('work-input-modal').classList.remove('show');
       showThankYouMessage();
+      
+      // 勤怠状況を再更新してボタンの状態を正しく設定
+      if (selectedEmployeeId) {
+        updateAttendanceDisplay();
+      }
     }
     
     // お疲れ様メッセージ表示
@@ -1083,9 +1127,17 @@
         .getScriptUrl();
     }
     
-    // モーダル外クリックで閉じる
+    // モーダル外クリックで閉じる（作業記録モーダルは除外）
     document.addEventListener('click', function(e) {
       if (e.target.classList.contains('modal')) {
+        // 作業記録モーダルは外側クリックでは閉じない
+        const workConfirmModal = document.getElementById('work-confirm-modal');
+        const workInputModal = document.getElementById('work-input-modal');
+        
+        if (e.target === workConfirmModal || e.target === workInputModal) {
+          return; // 何もしない
+        }
+        
         closeWorkModal();
       }
     });
