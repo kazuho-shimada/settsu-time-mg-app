@@ -1,6 +1,6 @@
 // 勤怠管理システム - メインコード
 // スプレッドシートID（実際のIDに変更してください）
-const SPREADSHEET_ID = '1RYRhIttQfHz3s8NlUBwZYXnNmC5HDvg9cyctU15bpYM';
+const SPREADSHEET_ID = '1fu2uip2e8_j-KDBxu3TAQUxrQIBlTB9MUs42w0dh1W4';
 
 // シート名定数
 const SHEETS = {
@@ -8,6 +8,13 @@ const SHEETS = {
   ATTENDANCE: '勤怠記録',
   WORK_RECORDS: '作業記録',
   WORK_TYPES: '作業項目マスタ'
+};
+
+// 勤怠状態の定義
+const AttendanceState = {
+  NOT_CHECKED_IN: '未出勤',
+  CHECKED_IN: '出勤中',
+  COMPLETED: '退勤済'
 };
 
 // キャッシュ設定
@@ -44,11 +51,11 @@ function setupSheets() {
     employeesSheet.appendRow(['E003', '田中一郎']);
   }
   
-  // 勤怠記録
+  // 勤怠記録（状態列を追加）
   const attendanceSheet = getOrCreateSheet(SHEETS.ATTENDANCE);
   if (attendanceSheet.getLastRow() === 0) {
-    attendanceSheet.appendRow(['日付', '社員ID', '社員名', '出勤時間', '退勤時間', '備考']);
-    attendanceSheet.getRange('A1:F1').setFontWeight('bold').setBackground('#f3f3f3');
+    attendanceSheet.appendRow(['日付', '社員ID', '社員名', '出勤時間', '退勤時間', '状態', '備考']);
+    attendanceSheet.getRange('A1:G1').setFontWeight('bold').setBackground('#f3f3f3');
   }
   
   // 作業記録
@@ -96,7 +103,7 @@ function doGet(e) {
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     }
     
-    // デフォルトはメイン画面（tパラメータは無視）
+    // デフォルトはメイン画面
     console.log('Main page requested');
     const template = HtmlService.createTemplateFromFile('index');
     return template.evaluate()
@@ -123,6 +130,21 @@ function doGet(e) {
 // WebアプリのURLを取得する
 function getScriptUrl() {
   return ScriptApp.getService().getUrl();
+}
+
+// === ユーティリティ関数 ===
+
+// 特定の社員・日付の行を検索（高速化）
+function findRowByEmployeeAndDate(sheet, employeeId, date) {
+  const data = sheet.getDataRange().getDisplayValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === date && data[i][1] === employeeId) {
+      return i + 1; // 1-basedの行番号
+    }
+  }
+  
+  return -1; // 見つからない場合
 }
 
 // === キャッシュ関連 ===
@@ -216,18 +238,14 @@ function getWorkTypes() {
   }
 }
 
-// 全社員の当日勤怠状況を一括取得
+// 全社員の当日勤怠状況を一括取得（起動時のみ使用）
 function getAllTodayAttendance() {
   try {
     const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
     
-    // キャッシュチェック
-    const cached = getFromCache('all_attendance_' + today);
-    if (cached) return cached;
-    
     initialize();
     const sheet = spreadsheet.getSheetByName(SHEETS.ATTENDANCE);
-    const data = sheet.getDataRange().getValues();
+    const data = sheet.getDataRange().getDisplayValues();
     
     const attendanceMap = {};
     
@@ -235,17 +253,17 @@ function getAllTodayAttendance() {
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] === today) {
         const employeeId = data[i][1];
+        const state = data[i][5] || AttendanceState.NOT_CHECKED_IN;
+        
         attendanceMap[employeeId] = {
           hasCheckedIn: !!data[i][3],
           hasCheckedOut: !!data[i][4],
           checkInTime: data[i][3] || '',
-          checkOutTime: data[i][4] || ''
+          checkOutTime: data[i][4] || '',
+          state: state
         };
       }
     }
-    
-    // キャッシュに保存
-    saveToCache('all_attendance_' + today, attendanceMap);
     
     return attendanceMap;
   } catch (e) {
@@ -254,19 +272,47 @@ function getAllTodayAttendance() {
   }
 }
 
-// 当日の勤怠状況取得（個別）
+// 当日の勤怠状況取得（個別・最適化版）
 function getTodayAttendance(employeeId) {
   try {
-    const allAttendance = getAllTodayAttendance();
-    return allAttendance[employeeId] || {
+    const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+    
+    initialize();
+    const sheet = spreadsheet.getSheetByName(SHEETS.ATTENDANCE);
+    
+    // 特定の社員・日付の行を高速検索
+    const rowNum = findRowByEmployeeAndDate(sheet, employeeId, today);
+    
+    if (rowNum > 0) {
+      const rowData = sheet.getRange(rowNum, 1, 1, 7).getDisplayValues()[0];
+      const state = rowData[5] || AttendanceState.NOT_CHECKED_IN;
+      
+      return {
+        hasCheckedIn: !!rowData[3],
+        hasCheckedOut: !!rowData[4],
+        checkInTime: rowData[3] || '',
+        checkOutTime: rowData[4] || '',
+        state: state,
+        rowNumber: rowNum
+      };
+    }
+    
+    return {
       hasCheckedIn: false,
       hasCheckedOut: false,
       checkInTime: '',
-      checkOutTime: ''
+      checkOutTime: '',
+      state: AttendanceState.NOT_CHECKED_IN,
+      rowNumber: -1
     };
   } catch (e) {
     console.error('勤怠状況取得エラー:', e);
-    return { hasCheckedIn: false, hasCheckedOut: false };
+    return { 
+      hasCheckedIn: false, 
+      hasCheckedOut: false,
+      state: AttendanceState.NOT_CHECKED_IN,
+      rowNumber: -1
+    };
   }
 }
 
@@ -276,12 +322,6 @@ function getTodayAttendance(employeeId) {
 function recordCheckIn(employeeId) {
   try {
     initialize();
-    
-    // 既に出勤済みかチェック
-    const attendance = getTodayAttendance(employeeId);
-    if (attendance.hasCheckedIn) {
-      return { success: false, message: '本日は既に出勤記録があります' };
-    }
     
     const employee = getEmployees().find(emp => emp.id === employeeId);
     if (!employee) {
@@ -293,7 +333,20 @@ function recordCheckIn(employeeId) {
     const time = Utilities.formatDate(now, 'Asia/Tokyo', 'HH:mm');
     
     const sheet = spreadsheet.getSheetByName(SHEETS.ATTENDANCE);
-    sheet.appendRow([today, employeeId, employee.name, time, '', '']);
+    const attendance = getTodayAttendance(employeeId);
+    
+    if (attendance.state === AttendanceState.CHECKED_IN || attendance.state === AttendanceState.COMPLETED) {
+      return { success: false, message: '本日は既に出勤記録があります' };
+    }
+    
+    if (attendance.rowNumber > 0) {
+      // 既存行を更新
+      sheet.getRange(attendance.rowNumber, 4).setValue(time); // 出勤時間
+      sheet.getRange(attendance.rowNumber, 6).setValue(AttendanceState.CHECKED_IN); // 状態
+    } else {
+      // 新規行を追加
+      sheet.appendRow([today, employeeId, employee.name, time, '', AttendanceState.CHECKED_IN, '']);
+    }
     
     // キャッシュをクリア
     clearCache('all_attendance_' + today);
@@ -303,7 +356,8 @@ function recordCheckIn(employeeId) {
       hasCheckedIn: true,
       hasCheckedOut: false,
       checkInTime: time,
-      checkOutTime: ''
+      checkOutTime: '',
+      state: AttendanceState.CHECKED_IN
     };
     
     return { 
@@ -332,33 +386,16 @@ function recordCheckOut(employeeId) {
     const time = Utilities.formatDate(now, 'Asia/Tokyo', 'HH:mm');
     
     const sheet = spreadsheet.getSheetByName(SHEETS.ATTENDANCE);
-    const lastRow = sheet.getLastRow();
+    const attendance = getTodayAttendance(employeeId);
     
-    // 今日の出勤記録を探して退勤時間を更新
-    let checkInTime = '';
-    let foundRow = -1;
-
-    if (lastRow >= 2) {
-      // getDisplayValues() を使って日付を文字列として比較する
-      const data = sheet.getRange(2, 1, lastRow - 1, 4).getDisplayValues();
-      for (let i = data.length - 1; i >= 0; i--) {
-        const rowDate = data[i][0]; // 日付
-        const rowEmployeeId = data[i][1]; // 社員ID
-        
-        if (rowDate === today && String(rowEmployeeId) === String(employeeId)) {
-          foundRow = i + 2; // 1-basedの行番号に変換
-          checkInTime = data[i][3] || ''; // 出勤時間
-          break;
-        }
-      }
+    if (attendance.state !== AttendanceState.CHECKED_IN) {
+      return { success: false, message: '出勤記録がないため退勤できません' };
     }
     
-    if (foundRow > 0) {
-      // 退勤時間を更新
-      sheet.getRange(foundRow, 5).setValue(time);
-    } else {
-      // 出勤記録がない場合は退勤のみ記録
-      sheet.appendRow([today, employeeId, employee.name, '', time, '退勤のみ']);
+    if (attendance.rowNumber > 0) {
+      // 既存行を更新
+      sheet.getRange(attendance.rowNumber, 5).setValue(time); // 退勤時間
+      sheet.getRange(attendance.rowNumber, 6).setValue(AttendanceState.COMPLETED); // 状態
     }
     
     // キャッシュをクリア
@@ -366,10 +403,11 @@ function recordCheckOut(employeeId) {
     
     // 更新された勤怠情報を返す
     const updatedAttendance = {
-      hasCheckedIn: !!checkInTime, // 出勤記録があればtrue
+      hasCheckedIn: true,
       hasCheckedOut: true,
-      checkInTime: checkInTime,
-      checkOutTime: time
+      checkInTime: attendance.checkInTime,
+      checkOutTime: time,
+      state: AttendanceState.COMPLETED
     };
     
     return { 
@@ -379,6 +417,52 @@ function recordCheckOut(employeeId) {
     };
   } catch (e) {
     console.error('退勤記録エラー:', e);
+    return { success: false, message: 'エラーが発生しました' };
+  }
+}
+
+// 勤怠記録クリア
+function clearAttendance(employeeId) {
+  try {
+    initialize();
+    
+    const employee = getEmployees().find(emp => emp.id === employeeId);
+    if (!employee) {
+      return { success: false, message: '社員が見つかりません' };
+    }
+    
+    const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+    const sheet = spreadsheet.getSheetByName(SHEETS.ATTENDANCE);
+    const attendance = getTodayAttendance(employeeId);
+    
+    if (attendance.rowNumber > 0) {
+      // 既存行の時間をクリア
+      sheet.getRange(attendance.rowNumber, 4, 1, 2).clearContent(); // 出勤・退勤時間をクリア
+      sheet.getRange(attendance.rowNumber, 6).setValue(AttendanceState.NOT_CHECKED_IN); // 状態を未出勤に
+      sheet.getRange(attendance.rowNumber, 7).setValue('クリア実行'); // 備考
+    } else {
+      return { success: false, message: '本日の勤怠記録がありません' };
+    }
+    
+    // キャッシュをクリア
+    clearCache('all_attendance_' + today);
+    
+    // 更新された勤怠情報を返す
+    const updatedAttendance = {
+      hasCheckedIn: false,
+      hasCheckedOut: false,
+      checkInTime: '',
+      checkOutTime: '',
+      state: AttendanceState.NOT_CHECKED_IN
+    };
+    
+    return { 
+      success: true, 
+      message: `${employee.name}さんの勤怠記録をクリアしました`,
+      attendance: updatedAttendance
+    };
+  } catch (e) {
+    console.error('勤怠クリアエラー:', e);
     return { success: false, message: 'エラーが発生しました' };
   }
 }
@@ -517,20 +601,17 @@ function getAttendanceData(startDate, endDate) {
   try {
     initialize();
     const sheet = spreadsheet.getSheetByName(SHEETS.ATTENDANCE);
-    // ヘッダーを除いたデータを取得
     const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
     
     const filteredData = [];
-    // 日付のタイムゾーンを考慮して比較
     const start = new Date(startDate + 'T00:00:00');
     const end = new Date(endDate + 'T23:59:59');
     
     for (let i = 0; i < data.length; i++) {
       const dateStr = data[i][0];
-      if (dateStr && typeof dateStr.getMonth === 'function') { // Dateオブジェクトかチェック
+      if (dateStr && typeof dateStr.getMonth === 'function') {
         if (dateStr >= start && dateStr <= end) {
-          // 日付を yyyy/MM/dd 形式の文字列に変換して追加
-          const row = data[i].slice(); // 配列をコピー
+          const row = data[i].slice();
           row[0] = Utilities.formatDate(dateStr, 'Asia/Tokyo', 'yyyy/MM/dd');
           filteredData.push(row);
         }
@@ -548,20 +629,17 @@ function getWorkRecordData(startDate, endDate) {
   try {
     initialize();
     const sheet = spreadsheet.getSheetByName(SHEETS.WORK_RECORDS);
-    // ヘッダーを除いたデータを取得
     const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
     
     const filteredData = [];
-    // 日付のタイムゾーンを考慮して比較
     const start = new Date(startDate + 'T00:00:00');
     const end = new Date(endDate + 'T23:59:59');
     
     for (let i = 0; i < data.length; i++) {
       const dateStr = data[i][0];
-      if (dateStr && typeof dateStr.getMonth === 'function') { // Dateオブジェクトかチェック
+      if (dateStr && typeof dateStr.getMonth === 'function') {
         if (dateStr >= start && dateStr <= end) {
-          // 日付を yyyy/MM/dd 形式の文字列に変換して追加
-          const row = data[i].slice(); // 配列をコピー
+          const row = data[i].slice();
           row[0] = Utilities.formatDate(dateStr, 'Asia/Tokyo', 'yyyy/MM/dd');
           filteredData.push(row);
         }

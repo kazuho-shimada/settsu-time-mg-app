@@ -96,24 +96,52 @@
       border-color: #1976d2;
     }
     
+    /* 状態アイコンの更新 */
+    .employee-card.not-checked-in::before {
+      content: '○';
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 1.2rem;
+      color: #6c757d;
+    }
+    
+    .employee-card.checked-in::before {
+      content: '●';
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 1.2rem;
+      color: #2196f3;
+    }
+    
     .employee-card.checked-in::after {
       content: '出勤中';
       position: absolute;
       top: 8px;
-      right: 8px;
-      background: #28a745;
+      right: 28px;
+      background: #2196f3;
       color: white;
       font-size: 0.7rem;
       padding: 2px 8px;
       border-radius: 12px;
     }
     
-    .employee-card.checked-out::after {
-      content: '退勤済';
+    .employee-card.completed::before {
+      content: '✓';
       position: absolute;
       top: 8px;
       right: 8px;
-      background: #6c757d;
+      font-size: 1.2rem;
+      color: #28a745;
+    }
+    
+    .employee-card.completed::after {
+      content: '退勤済';
+      position: absolute;
+      top: 8px;
+      right: 28px;
+      background: #28a745;
       color: white;
       font-size: 0.7rem;
       padding: 2px 8px;
@@ -146,17 +174,23 @@
       border-radius: 8px;
       padding: 1rem;
       margin: 1.5rem 0;
-      font-size: 1.1rem;
+      font-size: 1.3rem;
+      font-weight: 600;
     }
     
-    .status-checkedin {
+    .status-not-checked-in {
+      background: #e9ecef;
+      color: #6c757d;
+    }
+    
+    .status-checked-in {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    
+    .status-completed {
       background: #d4edda;
       color: #155724;
-    }
-    
-    .status-checkedout {
-      background: #f8d7da;
-      color: #721c24;
     }
     
     .time-info {
@@ -224,6 +258,16 @@
     
     .btn-checkout:hover:not(:disabled) {
       background: #c82333;
+      transform: translateY(-2px);
+    }
+    
+    .btn-clear {
+      background: #ffc107;
+      color: #212529;
+    }
+    
+    .btn-clear:hover:not(:disabled) {
+      background: #e0a800;
       transform: translateY(-2px);
     }
     
@@ -454,6 +498,9 @@
           <button class="btn btn-checkout" id="checkout-btn" onclick="handleCheckOut()">
             退勤
           </button>
+          <button class="btn btn-clear" id="clear-btn" onclick="handleClear()">
+            クリア
+          </button>
         </div>
         
         <div id="message-area"></div>
@@ -507,6 +554,13 @@
     var selectedEmployeeId = null;
     var attendanceCache = {}; // 勤怠情報のキャッシュ
     var currentDate = null;
+    
+    // 状態定数
+    const AttendanceState = {
+      NOT_CHECKED_IN: '未出勤',
+      CHECKED_IN: '出勤中',
+      COMPLETED: '退勤済'
+    };
     
     // 初期化処理
     document.addEventListener('DOMContentLoaded', function() {
@@ -618,12 +672,19 @@
       }
       
       grid.innerHTML = employees.map(emp => {
-        const attendance = attendanceCache[emp.id] || { hasCheckedIn: false, hasCheckedOut: false };
+        const attendance = attendanceCache[emp.id] || { state: AttendanceState.NOT_CHECKED_IN };
         let statusClass = '';
-        if (attendance.hasCheckedOut) {
-          statusClass = 'checked-out';
-        } else if (attendance.hasCheckedIn) {
-          statusClass = 'checked-in';
+        
+        switch(attendance.state) {
+          case AttendanceState.NOT_CHECKED_IN:
+            statusClass = 'not-checked-in';
+            break;
+          case AttendanceState.CHECKED_IN:
+            statusClass = 'checked-in';
+            break;
+          case AttendanceState.COMPLETED:
+            statusClass = 'completed';
+            break;
         }
         
         const selectedClass = selectedEmployeeId === emp.id ? 'selected' : '';
@@ -666,15 +727,26 @@
       const employee = employees.find(emp => emp.id === employeeId);
       document.getElementById('selected-name').textContent = employee.name + 'さん';
       
-      // 勤怠状況表示
+      // 勤怠状況表示（個別取得）
       updateAttendanceDisplay();
+      
+      // 選択した社員の最新データを取得
+      google.script.run
+        .withSuccessHandler(function(attendance) {
+          attendanceCache[selectedEmployeeId] = attendance;
+          updateAttendanceDisplay();
+          renderEmployees(); // 社員カードの状態も更新
+        })
+        .withFailureHandler(function(error) {
+          console.error('個別勤怠取得エラー:', error);
+        })
+        .getTodayAttendance(selectedEmployeeId);
     }
     
     // 勤怠状況表示更新
     function updateAttendanceDisplay() {
       const attendance = attendanceCache[selectedEmployeeId] || { 
-        hasCheckedIn: false, 
-        hasCheckedOut: false,
+        state: AttendanceState.NOT_CHECKED_IN,
         checkInTime: '',
         checkOutTime: ''
       };
@@ -682,6 +754,7 @@
       const statusDiv = document.getElementById('status-display');
       const checkinBtn = document.getElementById('checkin-btn');
       const checkoutBtn = document.getElementById('checkout-btn');
+      const clearBtn = document.getElementById('clear-btn');
       const checkinTimeEl = document.getElementById('checkin-time');
       const checkoutTimeEl = document.getElementById('checkout-time');
       
@@ -689,21 +762,33 @@
       checkinTimeEl.textContent = attendance.checkInTime || '--:--';
       checkoutTimeEl.textContent = attendance.checkOutTime || '--:--';
       
-      if (!attendance.hasCheckedIn) {
-        statusDiv.textContent = '未出勤';
-        statusDiv.className = 'status-display';
-        checkinBtn.disabled = false;
-        checkoutBtn.disabled = true;
-      } else if (!attendance.hasCheckedOut) {
-        statusDiv.textContent = '出勤中';
-        statusDiv.className = 'status-display status-checkedin';
-        checkinBtn.disabled = true;
-        checkoutBtn.disabled = false;
-      } else {
-        statusDiv.textContent = '退勤済み';
-        statusDiv.className = 'status-display status-checkedout';
-        checkinBtn.disabled = true;
-        checkoutBtn.disabled = true;
+      // 状態表示とボタン制御
+      statusDiv.className = 'status-display';
+      
+      switch(attendance.state) {
+        case AttendanceState.NOT_CHECKED_IN:
+          statusDiv.textContent = '未出勤';
+          statusDiv.classList.add('status-not-checked-in');
+          checkinBtn.disabled = false;
+          checkoutBtn.disabled = true;
+          clearBtn.disabled = true;
+          break;
+          
+        case AttendanceState.CHECKED_IN:
+          statusDiv.textContent = '出勤中';
+          statusDiv.classList.add('status-checked-in');
+          checkinBtn.disabled = true;
+          checkoutBtn.disabled = false;
+          clearBtn.disabled = false;
+          break;
+          
+        case AttendanceState.COMPLETED:
+          statusDiv.textContent = '退勤済';
+          statusDiv.classList.add('status-completed');
+          checkinBtn.disabled = true;
+          checkoutBtn.disabled = true;
+          clearBtn.disabled = false;
+          break;
       }
     }
     
@@ -751,18 +836,7 @@
         .withSuccessHandler(function(result) {
           if (result.success) {
             // キャッシュを更新
-            const existingAttendance = attendanceCache[selectedEmployeeId] || {};
-            const newAttendance = {
-              ...existingAttendance, // 既存の情報を保持 (checkInTimeなど)
-              ...result.attendance, // サーバーからの新しい情報で上書き
-            };
-
-            // サーバーからの戻り値にcheckInTimeがない場合、既存の値を維持する
-            if (!newAttendance.checkInTime && existingAttendance.checkInTime) {
-              newAttendance.checkInTime = existingAttendance.checkInTime;
-            }
-
-            attendanceCache[selectedEmployeeId] = newAttendance;
+            attendanceCache[selectedEmployeeId] = result.attendance;
             
             showMessage(result.message, 'success');
             updateAttendanceDisplay();
@@ -785,6 +859,43 @@
           console.error('退勤処理エラー:', error);
         })
         .recordCheckOut(selectedEmployeeId);
+    }
+    
+    // クリア処理
+    function handleClear() {
+      if (!selectedEmployeeId) return;
+      
+      const employee = employees.find(emp => emp.id === selectedEmployeeId);
+      if (!confirm(`${employee.name}さんの本日の勤怠記録をクリアしますか？`)) {
+        return;
+      }
+      
+      const btn = document.getElementById('clear-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span> 処理中...';
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            // キャッシュを更新
+            attendanceCache[selectedEmployeeId] = result.attendance;
+            
+            showMessage(result.message, 'success');
+            updateAttendanceDisplay();
+            renderEmployees(); // 社員カードの状態も更新
+          } else {
+            showMessage(result.message, 'error');
+          }
+          btn.innerHTML = 'クリア';
+          updateAttendanceDisplay(); // ボタン状態を再更新
+        })
+        .withFailureHandler(function(error) {
+          showMessage('クリア処理でエラーが発生しました', 'error');
+          btn.innerHTML = 'クリア';
+          updateAttendanceDisplay(); // ボタン状態を再更新
+          console.error('クリア処理エラー:', error);
+        })
+        .clearAttendance(selectedEmployeeId);
     }
     
     // 作業記録フォーム表示

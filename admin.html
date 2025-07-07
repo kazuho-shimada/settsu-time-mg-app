@@ -666,7 +666,7 @@
         .withSuccessHandler(function(data) {
           if (data && data.length > 0) {
             downloadCSV(data, '勤怠データ_' + startDate + '_' + endDate + '.csv', 
-              ['日付', '社員ID', '社員名', '出勤時間', '退勤時間', '備考']);
+              ['日付', '社員ID', '社員名', '出勤時間', '退勤時間', '状態', '備考']);
             showMessage('勤怠データを出力しました', 'success');
           } else {
             showMessage('該当するデータがありません', 'error');
