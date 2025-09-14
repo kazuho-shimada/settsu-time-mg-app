@@ -597,11 +597,10 @@
   <div class="initial-loading" id="initial-loading">
     <div class="loading-spinner"></div>
     <div class="loading-text">データを読み込み中...</div>
-    <div class="loading-steps">
-      <div class="loading-step" id="loading-employees">社員データ読み込み中</div>
-      <div class="loading-step" id="loading-work-types">作業項目データ読み込み中</div>
-      <div class="loading-step" id="loading-attendance">勤怠データ読み込み中</div>
-    </div>
+      <div class="loading-steps">
+        <div class="loading-step" id="loading-employees">社員データ読み込み中</div>
+        <div class="loading-step" id="loading-attendance">勤怠データ読み込み中</div>
+      </div>
   </div>
   
   <div class="main-container" id="main-container">
@@ -639,7 +638,7 @@
         </div>
         
         <div class="action-buttons">
-          <!-- メインアクション -->
+          <!-- メインアクション（作業記録を除外し、クリアを同列に配置） -->
           <div class="main-actions">
             <button class="btn btn-main btn-checkin" id="checkin-btn" onclick="handleCheckIn()">
               出勤
@@ -647,15 +646,8 @@
             <button class="btn btn-main btn-checkout" id="checkout-btn" onclick="handleCheckOut()">
               退勤
             </button>
-          </div>
-          
-          <!-- サブアクション -->
-          <div class="sub-actions">
             <button class="btn btn-sub btn-clear" id="clear-btn" onclick="handleClear()">
               クリア
-            </button>
-            <button class="btn btn-sub btn-work-record" id="work-record-btn" onclick="handleWorkRecord()">
-              作業記録
             </button>
           </div>
         </div>
@@ -665,56 +657,18 @@
     </div>
   </div>
   
-  <!-- 作業記録確認モーダル -->
-  <div class="modal" id="work-confirm-modal">
-    <div class="modal-content">
-      <h3 class="modal-title">作業記録の確認</h3>
-      <p>本日の作業記録はありますか？</p>
-      <div class="modal-buttons">
-        <button class="btn btn-secondary" onclick="closeWorkModal()">いいえ</button>
-        <button class="btn btn-primary" onclick="showWorkForm()">はい</button>
-      </div>
-    </div>
-  </div>
   
-  <!-- 作業記録入力モーダル -->
-  <div class="modal" id="work-input-modal">
-    <div class="modal-content">
-      <h3 class="modal-title">作業記録入力</h3>
-      <form class="work-form" id="work-form">
-        <div class="form-group">
-          <label for="work-type">作業項目</label>
-          <select id="work-type" required>
-            <option value="">選択してください</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="lot-number">ロット番号</label>
-          <input type="text" id="lot-number" required placeholder="例: LOT-001">
-        </div>
-        <div class="form-group">
-          <label for="quantity">数量</label>
-          <input type="number" id="quantity" required min="1" placeholder="例: 10">
-        </div>
-      </form>
-      <div class="modal-buttons">
-        <button class="btn btn-secondary" onclick="closeWorkModal()">キャンセル</button>
-        <button class="btn btn-primary" onclick="saveWorkRecord()">保存</button>
-      </div>
-    </div>
-  </div>
   
   <script>
     // グローバル変数
     var employees = [];
-    var workTypes = [];
     var selectedEmployeeId = null;
     var attendanceCache = {}; // 勤怠情報のキャッシュ
     var currentDate = null;
     var isProcessing = false; // 処理中フラグ
     var processingEmployeeId = null; // 処理中の社員ID
     var isInitialLoading = true; // 初期読み込み中フラグ
-    var loadingSteps = { employees: false, work_types: false, attendance: false }; // 読み込み完了状況
+    var loadingSteps = { employees: false, attendance: false }; // 読み込み完了状況
     
     // 状態定数
     const AttendanceState = {
@@ -737,7 +691,6 @@
       document.getElementById('main-container').classList.add('loading');
       
       loadEmployees();
-      loadWorkTypes();
       
       // 日付変更の監視（1分ごと）
       setInterval(checkDateChange, 60000);
@@ -818,20 +771,7 @@
         .getAllTodayAttendance();
     }
     
-    // 作業項目データ読み込み
-    function loadWorkTypes() {
-      google.script.run
-        .withSuccessHandler(function(data) {
-          workTypes = data || [];
-          renderWorkTypeOptions();
-          markLoadingStepCompleted('work_types');
-        })
-        .withFailureHandler(function(error) {
-          console.error('作業項目読み込みエラー:', error);
-          markLoadingStepCompleted('work_types'); // エラーでも完了扱い
-        })
-        .getWorkTypes();
-    }
+    // 作業項目機能は一時無効化
     
     // 社員カード表示
     function renderEmployees() {
@@ -871,12 +811,7 @@
       }).join('');
     }
     
-    // 作業項目選択肢表示
-    function renderWorkTypeOptions() {
-      const select = document.getElementById('work-type');
-      select.innerHTML = '<option value="">選択してください</option>' +
-        workTypes.map(wt => `<option value="${wt.id}">${wt.name}</option>`).join('');
-    }
+    // 作業項目機能は一時無効化
     
     // 社員選択
     function selectEmployee(employeeId) {
@@ -942,7 +877,6 @@
       const checkinBtn = document.getElementById('checkin-btn');
       const checkoutBtn = document.getElementById('checkout-btn');
       const clearBtn = document.getElementById('clear-btn');
-      const workRecordBtn = document.getElementById('work-record-btn');
       const checkinTimeEl = document.getElementById('checkin-time');
       const checkoutTimeEl = document.getElementById('checkout-time');
       
@@ -961,7 +895,6 @@
         checkinBtn.disabled = true;
         checkoutBtn.disabled = true;
         clearBtn.disabled = true;
-        workRecordBtn.disabled = true;
         statusDiv.textContent = 'データ読み込み中...';
         statusDiv.className = 'status-display';
         return;
@@ -975,7 +908,6 @@
           checkinBtn.disabled = false;
           checkoutBtn.disabled = true;
           clearBtn.disabled = true;
-          workRecordBtn.disabled = false;
           break;
           
         case AttendanceState.CHECKED_IN:
@@ -984,7 +916,6 @@
           checkinBtn.disabled = true;
           checkoutBtn.disabled = false;
           clearBtn.disabled = false;
-          workRecordBtn.disabled = false;
           break;
           
         case AttendanceState.COMPLETED:
@@ -993,7 +924,6 @@
           checkinBtn.disabled = true;
           checkoutBtn.disabled = true;
           clearBtn.disabled = false;
-          workRecordBtn.disabled = false;
           break;
       }
       
@@ -1028,9 +958,6 @@
       switch(step) {
         case 'employees':
           elementId = 'loading-employees';
-          break;
-        case 'work_types':
-          elementId = 'loading-work-types';
           break;
         case 'attendance':
           elementId = 'loading-attendance';
@@ -1148,11 +1075,6 @@
               // キャッシュを更新
               attendanceCache[targetEmployeeId] = result.attendance;
               showMessage(result.message, 'success');
-              
-              // 作業記録確認モーダル表示
-              setTimeout(() => {
-                document.getElementById('work-confirm-modal').classList.add('show');
-              }, 1500);
             } else {
               showMessage(result.message, 'error');
             }
@@ -1181,23 +1103,7 @@
         .recordCheckOut(targetEmployeeId);
     }
     
-    // 作業記録処理
-    function handleWorkRecord() {
-      if (!selectedEmployeeId || isInitialLoading) {
-        if (isInitialLoading) {
-          showMessage('データ読み込み中のため操作できません', 'error');
-        } else {
-          showMessage('社員を選択してください', 'error');
-        }
-        return;
-      }
-      
-      // 作業記録入力モーダルを直接表示
-      document.getElementById('work-input-modal').classList.add('show');
-      
-      // フォームリセット
-      document.getElementById('work-form').reset();
-    }
+    // 作業記録機能は一時無効化
     
     // クリア処理
     function handleClear() {
@@ -1261,72 +1167,7 @@
         .clearAttendance(targetEmployeeId);
     }
     
-    // 作業記録フォーム表示
-    function showWorkForm() {
-      document.getElementById('work-confirm-modal').classList.remove('show');
-      document.getElementById('work-input-modal').classList.add('show');
-      
-      // フォームリセット
-      document.getElementById('work-form').reset();
-    }
-    
-    // 作業記録保存
-    function saveWorkRecord() {
-      const workType = document.getElementById('work-type').value;
-      const lotNumber = document.getElementById('lot-number').value;
-      const quantity = document.getElementById('quantity').value;
-      
-      if (!workType || !lotNumber || !quantity) {
-        showMessage('すべての項目を入力してください', 'error');
-        return;
-      }
-      
-      if (quantity <= 0) {
-        showMessage('数量は1以上で入力してください', 'error');
-        return;
-      }
-      
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            showMessage(result.message, 'success');
-            closeWorkModal();
-            showThankYouMessage();
-            
-            // 作業記録保存後に勤怠状況を再更新
-            if (selectedEmployeeId) {
-              updateAttendanceDisplay();
-            }
-          } else {
-            showMessage(result.message, 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          showMessage('作業記録の保存でエラーが発生しました', 'error');
-          console.error('作業記録保存エラー:', error);
-        })
-        .saveWorkRecord(selectedEmployeeId, workType, lotNumber, parseInt(quantity));
-    }
-    
-    // 作業記録モーダルを閉じる
-    function closeWorkModal() {
-      document.getElementById('work-confirm-modal').classList.remove('show');
-      document.getElementById('work-input-modal').classList.remove('show');
-      showThankYouMessage();
-      
-      // 勤怠状況を再更新してボタンの状態を正しく設定
-      if (selectedEmployeeId) {
-        updateAttendanceDisplay();
-      }
-    }
-    
-    // お疲れ様メッセージ表示
-    function showThankYouMessage() {
-      const employee = employees.find(emp => emp.id === selectedEmployeeId);
-      if (employee) {
-        showMessage(`${employee.name}さん、お疲れ様でした！`, 'success');
-      }
-    }
+    // 作業記録機能は一時無効化
     
     // メッセージ表示
     function showMessage(text, type = 'info') {
@@ -1358,20 +1199,7 @@
         .getScriptUrl();
     }
     
-    // モーダル外クリックで閉じる（作業記録モーダルは除外）
-    document.addEventListener('click', function(e) {
-      if (e.target.classList.contains('modal')) {
-        // 作業記録モーダルは外側クリックでは閉じない
-        const workConfirmModal = document.getElementById('work-confirm-modal');
-        const workInputModal = document.getElementById('work-input-modal');
-        
-        if (e.target === workConfirmModal || e.target === workInputModal) {
-          return; // 何もしない
-        }
-        
-        closeWorkModal();
-      }
-    });
+    // 作業記録機能は一時無効化
   </script>
 </body>
 </html>
