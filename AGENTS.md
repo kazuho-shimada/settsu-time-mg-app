@@ -1,39 +1,54 @@
-# language
-日本語で簡潔かつ丁寧に回答してください
+# リポジトリガイドライン
 
-# Repository Guidelines
-## Project Structure & Module Organization
-- `src/` — Google Apps Script sources: `code.gs` (server), `index.html` and `admin.html` (templates), `appsscript.json` (manifest).
-- `docs/` — operational notes and deployment tips (e.g., clasp commands).
-- `config/` — reserved for environment/config files (no secrets committed).
-- Keep GAS entry points (`doGet`, etc.) at top of `code.gs`, followed by feature blocks: initialization, utilities, cache, data access, UI helpers.
+## 概要
+- Google Apps Scriptで動作する勤怠・作業記録管理 Web アプリです。現場端末（PC/タブレット）から出勤/退勤や作業登録を行い、Google スプレッドシートに保存します。
+- データ構成: 勤怠管理情報、各社員の勤怠データ、各社員の作業記録、などスプレッドシートに保存されます。初回起動時に未作成なら自動生成します。
+- 画面: 既定はメイン画面（打刻/一覧）。`?page=admin` で管理画面（設定・データメンテナンス）を表示します。
+- エントリーポイント: `doGet(e)` が `index.html`/`admin.html` をテンプレートとして返却。UI ロジックは主に `code.gs` 側のユーティリティを利用します。
+- パフォーマンス: 一部結果をキャッシュして再描画を高速化します（必要に応じて `clearCache` で無効化）。
+- デプロイ: Apps Script の Web アプリとして公開。CLI 運用は `clasp deploy -i <deploymentId>`（既存更新）推奨、マニフェストの `webapp` 設定により新規作成も可能です。
 
-## Build, Deploy, and Local Development
-- `clasp status` — show local vs. remote changes.
-- `clasp push` — push local `src/` to Apps Script project.
-- `clasp deploy --description "<note>"` — create a new deployment.
-- `clasp open --webapp` — open current web app for manual testing.
-- `clasp pull` — sync down remote changes if edits were made in the Apps Script editor.
+## コミュニケーションと言語
+- このリポジトリに関する質問・回答・PR説明・レビューコメントは、原則すべて日本語で記述・返信してください。
+- 例外: コード、識別子、ログ、CLI コマンドは英語表記のままで問題ありません。
 
-## Coding Style & Naming Conventions
-- JavaScript (V8). Indentation: 2 spaces; always use semicolons.
-- Prefer `const`/`let` (no `var`). Functions in `camelCase`; constants in `UPPER_SNAKE_CASE` (e.g., `SPREADSHEET_ID`, `SHEETS`).
-- Group related helpers; avoid large anonymous blocks. Keep functions short and single‑purpose.
-- HTML templates: keep inline scripts minimal; prefer server utilities in `code.gs`.
+## プロジェクト構成とモジュール配置
+- Google Apps Scriptで動作するWebアプリです。言語もGASに準じます
+- `src/` — Google Apps Script のソース: `code.gs`（サーバ）、`index.html` / `admin.html`（テンプレート）、`appsscript.json`（マニフェスト）。
+- `docs/` — 運用ノート・デプロイ手順（例: clasp コマンド集）。
+- `config/` — 環境・設定用（秘密情報はコミット禁止）。
+- `code.gs` は `doGet` 等のエントリーポイント → 初期化 → ユーティリティ → キャッシュ → データアクセス → UI ヘルパーの順で整理してください。
 
-## Testing Guidelines
-- No automated tests yet. Perform manual checks via `clasp open --webapp`:
-  - First‑load init, employee switching, check‑in/out flows, admin page navigation.
-  - Cache behaviors (e.g., after updates). Use `console.log` for traces.
-- When changing sheet schema, document headers and migration steps in the PR.
+## ビルド・テスト・開発コマンド
+- `clasp status` — ローカルとリモートの差分確認。
+- `clasp push` — `src/` の内容を Apps Script に反映。
+- `clasp deploy -d "<メモ>"` — デプロイ作成/更新（`appsscript.json` の `webapp` 設定があれば Web アプリとして作成）。
+- `clasp deploy -i <deploymentId> -d "update"` — 既存の Web アプリを更新。
+- `clasp open --webapp` — Web アプリの URL を開く。
+- `clasp pull` — エディタ側での変更をローカルへ取得。
 
-## Commit & Pull Request Guidelines
-- Commits: concise, imperative mood; English or Japanese accepted. Optional prefixes: `Fix:`, `Refactor:`, `Feat:`.
-- PRs must include: summary, affected screens (screenshots of `index`/`admin`), steps to verify, and any deployment or spreadsheet changes. Link related issues.
+## コーディング規約・命名
+- JavaScript(V8)。インデントは 2 スペース、セミコロン必須。
+- `const`/`let` を使用（`var` は使用しない）。関数名は `camelCase`、定数は `UPPER_SNAKE_CASE`（例: `SPREADSHEET_ID`, `SHEETS`）。
+- 関連ヘルパーを近接配置し、関数は短く単一責務に保つ。
+- HTML テンプレート内スクリプトは最小限にし、ロジックは `code.gs` 側へ。
 
-## Security & Configuration Tips
-- Do not commit secrets. Prefer `PropertiesService` for IDs/keys over hard‑coding.
-- Keep `appsscript.json` minimal; do not change `runtimeVersion` or `timeZone` without discussion.
+## テスト方針
+- 自動テストは未整備。`clasp open --webapp` から手動確認を行う：
+  - 初回初期化、社員切替、出勤/退勤フロー、管理画面遷移。
+  - 更新後のキャッシュ反映。必要に応じて `console.log` でトレース。
+- シート構成を変更する場合は、列ヘッダーと移行手順を PR に明記。
 
-## Agent‑Specific Notes
-- Limit changes to `src/` unless otherwise requested. Avoid mass reformatting. Preserve existing public function names used by the web app.
+## コミット／プルリクエスト
+- コミットは簡潔・命令形。日本語/英語どちらでも可。任意の接頭辞: `Fix:`, `Refactor:`, `Feat:`。
+- PR には概要、影響画面（`index`/`admin` のスクショ）、確認手順、デプロイ/スプレッドシートへの影響、関連 Issue へのリンクを含める。
+
+## セキュリティと設定の注意
+- 秘密情報はコミット禁止。ID/キーは `PropertiesService` の利用を推奨。
+- `appsscript.json` は最小限を維持。`timeZone`/`runtimeVersion`/`webapp` の変更は合意の上で実施。
+- Web アプリの公開範囲は既定で `ANYONE`（要件に応じて変更）。
+
+## エージェント向け注意
+- 変更は原則 `src/` 配下に限定。大規模な自動整形は行わない。
+- Web アプリが参照する公開関数名は変更しない。
+- すべての回答・説明は日本語で作成する。
